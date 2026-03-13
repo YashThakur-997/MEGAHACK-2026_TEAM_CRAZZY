@@ -1,8 +1,17 @@
+<<<<<<< abhay
+import React from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
+import { DotGlobeHero } from './components/ui/globe-hero.jsx';
+import PharmaSealDashboard from './components/distributor/DistributorDashboard.jsx';
+=======
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
 import { AuthModal } from './components/auth/AuthModal.jsx';
+>>>>>>> main
 
 // Navbar Component
 const Navbar = ({ openAuthModal }) => (
@@ -191,6 +200,11 @@ const Footer = () => (
   </footer>
 );
 
+<<<<<<< abhay
+// Landing Page Component
+function LandingPage() {
+  const navigate = useNavigate();
+=======
 export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
@@ -208,6 +222,7 @@ export default function App() {
 
   const handleOverlayClick = () => closeModal();
   const openAuthModal = () => setIsModalOpen(true);
+>>>>>>> main
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
@@ -252,7 +267,7 @@ export default function App() {
                   Manufacturer
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <button onClick={() => navigate('/distributor')} className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
                   Distributor
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -275,5 +290,14 @@ export default function App() {
 
       <Footer />
     </div>
-  )
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/distributor" element={<PharmaSealDashboard />} />
+    </Routes>
+  );
 }
