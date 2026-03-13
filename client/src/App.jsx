@@ -1,7 +1,9 @@
 import React from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
+import ManufacturerDashboard from './components/ui/manufacturer/ManufacturerDashboard.jsx';
 
 // Navbar Component
 const Navbar = () => (
@@ -184,7 +186,7 @@ const Footer = () => (
   </footer>
 );
 
-export default function App() {
+function LandingPage() {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
       <Navbar />
@@ -213,10 +215,10 @@ export default function App() {
                 Immutable tracking from manufacturer to patient. Preventing counterfeits, ensuring compliance, and saving lives through decentralization.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <Link to="/manufacturer" className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
                   Manufacturer
                   <ChevronRight className="w-5 h-5" />
-                </button>
+                </Link>
                 <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
                   Distributor
                   <ChevronRight className="w-5 h-5" />
@@ -241,4 +243,15 @@ export default function App() {
       <Footer />
     </div>
   )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/manufacturer" element={<ManufacturerDashboard />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
