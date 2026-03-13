@@ -5,10 +5,13 @@ module.exports = {
     version: "0.8.24",
     settings: {
       viaIR: true,
-      optimizer: {
-        enabled: true,
-        runs: 200
-      }
+      optimizer: { enabled: true, runs: 200 }
+    }
+  },
+  networks: {
+    ganache: {
+      url: "http://127.0.0.1:7545",
+      accounts: "remote"
     }
   }
 };
