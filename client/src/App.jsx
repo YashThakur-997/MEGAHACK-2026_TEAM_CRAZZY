@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
-<<<<<<< HEAD
-=======
 import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
+import PharmaSealDashboard from './components/distributor/DistributorDashboard.jsx';
 
-// UI Components (Ensure these paths are correct in your project)
->>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
+// UI Components
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
 import { AuthModal } from './components/auth/AuthModal.jsx';
 import SkyToggle from './components/ui/sky-toggle';
@@ -22,14 +20,11 @@ const Navbar = ({ openAuthModal, isDark, onToggleTheme }) => (
           PharmaSeal
         </span>
       </div>
-<<<<<<< HEAD
       <div className={`hidden md:flex flex-1 items-center justify-center gap-12 text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-800'}`}>
         <a href="#how-it-works" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>How it works</a>
         <a href="#roles" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>Network Roles</a>
         <a href="#about" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>About Us</a>
       </div>
-=======
->>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
       <div className="flex flex-shrink-0 items-center gap-4">
         <div className="hidden md:block">
           <SkyToggle checked={isDark} onChange={onToggleTheme} />
@@ -42,7 +37,10 @@ const Navbar = ({ openAuthModal, isDark, onToggleTheme }) => (
         </button>
         <button
           onClick={openAuthModal}
-          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.5)] cursor-pointer"
+          className="px-6 py-2.5 rounded-full text-white text-sm font-bold transition-all cursor-pointer"
+          style={{ background: "var(--green)", boxShadow: "0 0 15px rgba(34,197,94,0.45)" }}
+          onMouseEnter={e => e.currentTarget.style.background = "var(--green-dim)"}
+          onMouseLeave={e => e.currentTarget.style.background = "var(--green)"}
         >
           Launch App
         </button>
@@ -220,7 +218,9 @@ const Footer = ({ isDark }) => (
   </footer>
 );
 
-export default function App() {
+// Landing Page Component
+function LandingPage() {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -243,7 +243,6 @@ export default function App() {
   const themeClasses = isDark ? 'bg-black text-white' : 'bg-slate-50 text-slate-900';
 
   return (
-<<<<<<< HEAD
     <div className={`min-h-screen selection:bg-blue-500/30 font-sans ${themeClasses}`}>
       <Navbar openAuthModal={openAuthModal} isDark={isDark} onToggleTheme={handleToggleTheme} />
       
@@ -257,9 +256,10 @@ export default function App() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="mt-32 max-w-5xl mx-auto px-6 text-center"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-8">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
-                Live on Testnet
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8"
+                style={{ background: "var(--green-bg)", border: "1px solid var(--green-bdr)", color: "var(--green-dim)" }}>
+                <span className="w-2 h-2 rounded-full animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" style={{ background: "var(--green)" }} />
+                Live on Polygon
               </div>
               <h1 className={`text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Blockchain-Powered <br className="hidden md:block"/>
@@ -271,15 +271,27 @@ export default function App() {
                 Immutable tracking from manufacturer to patient. Preventing counterfeits, ensuring compliance, and saving lives through decentralization.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <button onClick={() => navigate('/manufacturer')} className="h-16 px-10 rounded-full text-white font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer text-xl"
+                  style={{ background: "var(--green)", boxShadow: "0 0 20px rgba(34,197,94,0.4)" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--green-dim)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--green)"}
+                >
                   Manufacturer
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button onClick={() => navigate('/distributor')} className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <button onClick={() => navigate('/distributor')} className="h-16 px-10 rounded-full text-white font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer text-xl"
+                  style={{ background: "var(--green)", boxShadow: "0 0 20px rgba(34,197,94,0.4)" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--green-dim)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--green)"}
+                >
                   Distributor
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <button className="h-16 px-10 rounded-full text-white font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer text-xl"
+                  style={{ background: "var(--green)", boxShadow: "0 0 20px rgba(34,197,94,0.4)" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--green-dim)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--green)"}
+                >
                   Patient
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -316,15 +328,15 @@ export default function App() {
         handleOverlayClick={handleOverlayClick}
       />
     </div>
-  )
-}
-=======
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/distributor" element={<PharmaSealDashboard />} />
-        <Route path="/manufacturer" element={<RegisterBatch />} />
-        <Route path="/patient" element={<PatientPortal />} />
-      </Routes>
   );
 }
->>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/distributor" element={<PharmaSealDashboard />} />
+      <Route path="/manufacturer" element={<RegisterBatch />} />
+    </Routes>
+  );
+}
