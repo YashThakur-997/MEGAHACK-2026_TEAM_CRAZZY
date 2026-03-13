@@ -1,26 +1,25 @@
-let mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
-const drugBatchSchema = new mongoose.Schema({
-    // --- BASIC INFO ---
-    name: { type: String, required: true }, // e.g., "Aspirin 500mg"
-    batchNumber: { type: String, required: true, unique: true }, // The physical ID on the bottle
-    description: String,
-    manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    manufacturingDate: { type: Date, default: Date.now },
-    expiryDate: { type: Date, required: true },
+const drugsBatchSchema = new mongoose.Schema(
+  {
+    batchId: { type: String, required: true, unique: true, index: true },
+    productName: { type: String, required: true },
+    manufacturerId: { type: String, required: true },
+    mfgDate: { type: String, required: true },
+    expDate: { type: String, required: true },
+    quantity: { type: Number, required: true },
+    plantCode: { type: String, required: true },
+    timestamp: { type: String, required: true },
+    category: { type: String },
+    storageConditions: { type: String },
+    ingredients: { type: String },
+    dataHash: { type: String, required: true },
+    txHash: { type: String, required: true },
+    qrPayload: { type: mongoose.Schema.Types.Mixed },
+  },
+  { timestamps: true }
+);
 
-    // --- BLOCKCHAIN & SECURITY ---
-    dataHash: { type: String, required: true }, // The SHA-256 digital seal
-    transactionHash: { type: String }, // The hash from the blockchain transaction
-    
-    // --- TRACKING ---
-    status: { 
-        type: String, 
-        enum: ['MANUFACTURED', 'IN_TRANSIT', 'DELIVERED', 'COMPROMISED'],
-        default: 'MANUFACTURED'
-    },
-    currentHolder: { type: String } // Wallet address of who currently has it
-}, { timestamps: true }); // Automatically adds createdAt and updatedAt
+const DrugsBatch = mongoose.models.DrugsBatch || mongoose.model('DrugsBatch', drugsBatchSchema);
 
-let DrugBatchModel = mongoose.model('DrugBatch', drugBatchSchema);
-module.exports = DrugBatchModel;
+module.exports = DrugsBatch;

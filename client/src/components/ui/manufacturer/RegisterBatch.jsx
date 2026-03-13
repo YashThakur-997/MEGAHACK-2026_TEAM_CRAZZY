@@ -205,6 +205,150 @@ function DashboardContent() {
 }
 
 function RegisterBatchContent() {
+  const [formData, setFormData] = useState({
+    productName: 'Paracetamol BP 500mg',
+    batchId: 'BCH-2023-0891',
+    manufacturerId: 'ML/2022/TX-90',
+    category: 'Analgesics',
+    mfgDate: '',
+    expDate: '',
+    quantity: '50000',
+    plantCode: 'APEX-PLANT-01',
+    storageConditions: '2°C to 8°C. Dry place',
+    ingredients: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHashing, setIsHashing] = useState(false);
+  const [generatedHash, setGeneratedHash] = useState('');
+  const [batchTimestamp, setBatchTimestamp] = useState(() => new Date().toISOString());
+  const [submitError, setSubmitError] = useState('');
+  const [submitResult, setSubmitResult] = useState(null);
+
+  const handleFieldChange = (key) => (e) => {
+    setFormData((prev) => ({ ...prev, [key]: e.target.value }));
+    setGeneratedHash('');
+  };
+
+  const sortObject = (obj) => {
+    if (Array.isArray(obj)) return obj.map(sortObject);
+    if (obj && typeof obj === 'object') {
+      return Object.keys(obj)
+        .sort()
+        .reduce((acc, key) => {
+          acc[key] = sortObject(obj[key]);
+          return acc;
+        }, {});
+    }
+    return obj;
+  };
+
+  const computeLocalHash = async (payload) => {
+    const canonical = JSON.stringify(sortObject(payload));
+    const encoded = new TextEncoder().encode(canonical);
+    const digest = await window.crypto.subtle.digest('SHA-256', encoded);
+    const hex = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return `0x${hex}`;
+  };
+
+  const buildHashInput = (timestampValue) => ({
+    batchId: formData.batchId.trim(),
+    productName: formData.productName.trim(),
+    manufacturerId: formData.manufacturerId.trim(),
+    mfgDate: formData.mfgDate,
+    expDate: formData.expDate,
+    quantity: Number(formData.quantity),
+    plantCode: formData.plantCode.trim(),
+    timestamp: timestampValue,
+  });
+
+  const handleGenerateHash = async () => {
+    setSubmitError('');
+    if (
+      !formData.batchId.trim() ||
+      !formData.productName.trim() ||
+      !formData.manufacturerId.trim() ||
+      !formData.mfgDate ||
+      !formData.expDate ||
+      !formData.quantity ||
+      !formData.plantCode.trim()
+    ) {
+      setSubmitError('Fill required batch fields before generating hash.');
+      return;
+    }
+
+    try {
+      setIsHashing(true);
+      const ts = new Date().toISOString();
+      setBatchTimestamp(ts);
+      const hash = await computeLocalHash(buildHashInput(ts));
+      setGeneratedHash(hash);
+    } catch {
+      setSubmitError('Unable to generate hash in browser.');
+    } finally {
+      setIsHashing(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError('');
+    setSubmitResult(null);
+
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const payload = {
+        batchId: formData.batchId.trim(),
+        productName: formData.productName.trim(),
+        manufacturerId: formData.manufacturerId.trim(),
+        mfgDate: formData.mfgDate,
+        expDate: formData.expDate,
+        quantity: Number(formData.quantity),
+        plantCode: formData.plantCode.trim(),
+        category: formData.category,
+        storageConditions: formData.storageConditions.trim(),
+        ingredients: formData.ingredients.trim(),
+        timestamp: batchTimestamp,
+      };
+
+      const res = await fetch(`${apiBase}/api/drugs/register-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const raw = await res.text();
+      let data = {};
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = { message: raw };
+        }
+      }
+
+      if (!res.ok || !data.ok) {
+        const message =
+          data.message && typeof data.message === 'string' && !data.message.trim().startsWith('<')
+            ? data.message
+            : `Batch registration failed (HTTP ${res.status}). Check backend server/proxy config.`;
+        throw new Error(message);
+      }
+
+      setSubmitResult({
+        dataHash: data?.batch?.dataHash || '',
+        txHash: data?.batch?.txHash || '',
+        qrDataUrl: data?.qrDataUrl || '',
+      });
+    } catch (err) {
+      setSubmitError(err?.message || 'Network error while registering batch');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl max-w-[1000px] mx-auto space-y-6 mt-2">
       <h2 className="text-3xl font-bold text-slate-800">Register Batch</h2>
@@ -236,28 +380,47 @@ function RegisterBatchContent() {
       </div>
 
       {/* Step 1 Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+      <form className="bg-white rounded-xl shadow-sm border border-slate-200 p-8" onSubmit={handleSubmit}>
         <h3 className="text-lg font-bold text-slate-800 mb-6">Step 1: Drug & Batch Information</h3>
 
         <div className="grid grid-cols-2 gap-x-8 gap-y-6">
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Drug Name</label>
-            <input type="text" placeholder="e.g. Paracetamol BP 500mg" className="ps-input" />
+            <input
+              type="text"
+              placeholder="e.g. Paracetamol BP 500mg"
+              className="ps-input"
+              value={formData.productName}
+              onChange={handleFieldChange('productName')}
+              required
+            />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Batch Number</label>
-            <input type="text" defaultValue="BCH-2023-0891" className="ps-input" />
+            <input
+              type="text"
+              className="ps-input"
+              value={formData.batchId}
+              onChange={handleFieldChange('batchId')}
+              required
+            />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Manufacturing License</label>
-            <input type="text" defaultValue="ML/2022/TX-90" className="ps-input" />
+            <input
+              type="text"
+              className="ps-input"
+              value={formData.manufacturerId}
+              onChange={handleFieldChange('manufacturerId')}
+              required
+            />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Category</label>
-            <select className="ps-input">
+            <select className="ps-input" value={formData.category} onChange={handleFieldChange('category')}>
               <option>Analgesics</option>
               <option>Antibiotics</option>
               <option>Vaccines</option>
@@ -266,39 +429,103 @@ function RegisterBatchContent() {
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Manufacturing Date</label>
-            <input type="date" className="ps-input" />
+            <input type="date" className="ps-input" value={formData.mfgDate} onChange={handleFieldChange('mfgDate')} required />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Expiry Date</label>
-            <input type="date" className="ps-input" />
+            <input type="date" className="ps-input" value={formData.expDate} onChange={handleFieldChange('expDate')} required />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Quantity (Units)</label>
-            <input type="number" defaultValue="50000" className="ps-input" />
+            <input type="number" min="1" className="ps-input" value={formData.quantity} onChange={handleFieldChange('quantity')} required />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Storage Conditions</label>
-            <input type="text" defaultValue="2°C to 8°C. Dry place" className="ps-input" />
+            <input
+              type="text"
+              className="ps-input"
+              value={formData.storageConditions}
+              onChange={handleFieldChange('storageConditions')}
+            />
+          </div>
+
+          <div className="space-y-1.5 flex flex-col">
+            <label className="text-sm font-medium text-slate-700">Plant Code</label>
+            <input
+              type="text"
+              className="ps-input"
+              value={formData.plantCode}
+              onChange={handleFieldChange('plantCode')}
+              required
+            />
           </div>
 
           <div className="col-span-2 space-y-1.5 flex flex-col pt-2">
             <label className="text-sm font-medium text-slate-700">Active Ingredients</label>
-            <textarea placeholder="List ingredients and concentrations..." className="ps-input" style={{ height: "6rem", resize: "none" }}></textarea>
+            <textarea
+              placeholder="List ingredients and concentrations..."
+              className="ps-input"
+              style={{ height: "6rem", resize: "none" }}
+              value={formData.ingredients}
+              onChange={handleFieldChange('ingredients')}
+            ></textarea>
           </div>
         </div>
 
+        {submitError && (
+          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {submitError}
+          </div>
+        )}
+
+        {generatedHash && (
+          <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800 break-all">
+            <span className="font-semibold">Generated Hash:</span> {generatedHash}
+          </div>
+        )}
+
+        {submitResult && (
+          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-emerald-700 text-sm font-semibold">
+              <CheckCircle2 size={16} /> Batch registered successfully
+            </div>
+            <p className="text-xs text-slate-700 break-all">
+              <span className="font-semibold">dataHash:</span> {submitResult.dataHash}
+            </p>
+            <p className="text-xs text-slate-700 break-all">
+              <span className="font-semibold">txHash:</span> {submitResult.txHash}
+            </p>
+            {submitResult.qrDataUrl && (
+              <div className="pt-2 flex flex-col gap-3">
+                <img
+                  src={submitResult.qrDataUrl}
+                  alt="Batch QR"
+                  className="w-44 h-44 rounded-lg border border-emerald-200 bg-white p-2"
+                />
+                <a
+                  href={submitResult.qrDataUrl}
+                  download={`${formData.batchId || 'batch'}-qr.png`}
+                  className="inline-flex w-fit items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  <Download size={16} /> Download QR
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
-          <button className="btn-secondary px-5 py-2.5">
-            Generate Hash
+          <button type="button" className="btn-secondary px-5 py-2.5" onClick={handleGenerateHash} disabled={isHashing}>
+            {isHashing ? 'Generating...' : 'Generate Hash'}
           </button>
-          <button className="btn-primary px-6 py-2.5">
-            Next: Supply Chain
+          <button type="submit" className="btn-primary px-6 py-2.5" disabled={isSubmitting}>
+            {isSubmitting ? 'Registering...' : 'Register on Blockchain'}
           </button>
         </div>
-      </div>
+      </form>
 
       {/* Step 2 Card */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 shadow-sm">

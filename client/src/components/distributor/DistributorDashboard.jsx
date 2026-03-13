@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const SCANS = [
@@ -94,7 +94,7 @@ function useCountUp(target, duration=1000) {
       if(start>=target) clearInterval(t);
     }, duration/40);
     return () => clearInterval(t);
-  }, [target]);
+  }, [target, duration]);
   return val;
 }
 
@@ -572,7 +572,7 @@ export default function PharmaSealDashboard() {
             const active = page===n.id;
             return (
               <button key={n.id} onClick={()=>setPage(n.id)}
-                style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?"rgba(34,197,94,0.15)":"transparent", borderLeft:active?"3px solid #22C55E":"3px solid transparent", color:active?"#22C55E":"#94A3B8", fontSize:13, fontWeight:active?600:400, cursor:"pointer", border:"none", borderLeft:active?"3px solid #22C55E":"3px solid transparent", transition:"all 0.15s", textAlign:"left", ...inter }}
+                style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?"rgba(34,197,94,0.15)":"transparent", borderLeft:active?"3px solid #22C55E":"3px solid transparent", color:active?"#22C55E":"#94A3B8", fontSize:13, fontWeight:active?600:400, cursor:"pointer", border:"none", transition:"all 0.15s", textAlign:"left", ...inter }}
                 onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; }}}
                 onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94A3B8"; }}}
               >

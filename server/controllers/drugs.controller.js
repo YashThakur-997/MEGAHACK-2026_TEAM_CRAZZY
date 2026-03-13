@@ -1,51 +1,98 @@
-const DrugBatch = require('../models/drugsbatch'); // Renamed to be more descriptive
-const crypto = require('crypto');
+const { computeBatchHash } = require("../utils/hash");
+const { generateQrDataUrl } = require("../utils/qr");
+const { registerBatchOnChain, getBatchOnChain } = require("../services/blockchain.service");
+const DrugsBatch = require("../models/drugsbatch");
 
-const createDrugBatch = async (req, res) => {
+// POST /api/drugs/register-batch
+exports.registerBatchWithHashAndQR = async (req, res) => {
+  try {
+    const batch = req.body;
+
+    // Keep only immutable fields for hashing
+    const hashInput = {
+      batchId: batch.batchId,
+      productName: batch.productName,
+      manufacturerId: batch.manufacturerId,
+      mfgDate: batch.mfgDate,
+      expDate: batch.expDate,
+      quantity: batch.quantity,
+      plantCode: batch.plantCode,
+      timestamp: batch.timestamp,
+    };
+
+    const dataHash = computeBatchHash(hashInput);
+    const txHash = await registerBatchOnChain(batch, dataHash);
+
+    const qrPayload = {
+      v: 1,
+      bid: batch.batchId,
+      h: dataHash,
+      tx: txHash,
+      c: process.env.BATCH_REGISTRY_ADDRESS,
+    };
+
+    const qrDataUrl = await generateQrDataUrl(qrPayload);
+
+    let saved;
+    let warning;
     try {
-        const { name, expiryDate, batchNumber } = req.body;
-
-        // 1. Generate the hash dynamically based on the specific request data
-        // We include the batchNumber and name to ensure the hash is unique
-        const dataToHash = `${name}-${expiryDate}-${batchNumber}`;
-        const dataHash = crypto.createHash('sha256').update(dataToHash).digest('hex');
-
-        // 2. Create the document in MongoDB
-        const newBatch = new DrugBatch({
-            name,
-            expiryDate,
-            batchNumber,
-            dataHash, // This is what you'll eventually send to the Smart Contract
-            manufacturer: req.user.id // Assuming your JWT middleware attaches the user
-        });
-
-        await newBatch.save();
-
-        // 3. Return the data so the Frontend can now call the Smart Contract
-        res.status(201).json({
-            message: 'Drug batch created in DB',
-            mongoId: newBatch._id,
-            hashToSign: dataHash 
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
+      saved = await DrugsBatch.create({
+        ...batch,
+        dataHash,
+        txHash,
+        qrPayload,
+      });
+    } catch (dbErr) {
+      warning = `Batch saved on-chain, but DB persistence failed: ${dbErr.message}`;
+      saved = {
+        ...batch,
+        dataHash,
+        txHash,
+        qrPayload,
+        persisted: false,
+      };
     }
+
+    return res.status(201).json({ ok: true, batch: saved, qrDataUrl, warning });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err.message });
+  }
 };
 
-const getDrugBatch = async (req, res) => {
-    try {
-        const { batchNumber } = req.params;
-        const batch = await DrugBatch.findOne({ batchNumber });
-        
-        if (!batch) {
-            return res.status(404).json({ error: 'Batch not found' });
-        }
-        
-        res.status(200).json(batch);
-    } catch (err) {
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-};
+// GET /api/drugs/verify/:batchId
+exports.verifyBatchById = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const batch = await DrugsBatch.findOne({ batchId });
+    if (!batch) return res.status(404).json({ ok: false, message: "Batch not found" });
 
-module.exports = { createDrugBatch, getDrugBatch };
+    const recomputed = computeBatchHash({
+      batchId: batch.batchId,
+      productName: batch.productName,
+      manufacturerId: batch.manufacturerId,
+      mfgDate: batch.mfgDate,
+      expDate: batch.expDate,
+      quantity: batch.quantity,
+      plantCode: batch.plantCode,
+      timestamp: batch.timestamp,
+    });
+
+    const onChain = await getBatchOnChain(batchId);
+
+    const verified =
+      recomputed.toLowerCase() === batch.dataHash.toLowerCase() &&
+      onChain.dataHash.toLowerCase() === batch.dataHash.toLowerCase();
+
+    return res.json({
+      ok: true,
+      status: verified ? "VERIFIED" : "TAMPERED",
+      recomputedHash: recomputed,
+      dbHash: batch.dataHash,
+      onChainHash: onChain.dataHash,
+      txHash: batch.txHash,
+      batch,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
