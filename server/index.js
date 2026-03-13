@@ -1,4 +1,5 @@
 const express = require('express')
+require('dotenv').config();
 require('./models/db.connection');
 const authrouter=require('./routes/auth.router');
 const drugrouter=require('./routes/drugs.router');
