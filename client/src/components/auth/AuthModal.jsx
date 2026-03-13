@@ -34,7 +34,7 @@ export const AuthModal = ({
         subtitle: 'Register & dispatch drug batches',
         icon: Factory,
         accent: '#3B82F6',
-        dashboard: '/manufacturer/dashboard',
+        dashboard: '/manufacturer',
       },
       {
         id: 'distributor',
@@ -42,7 +42,7 @@ export const AuthModal = ({
         subtitle: 'Verify shipments & track routes',
         icon: Truck,
         accent: '#A855F7',
-        dashboard: '/distributor/dashboard',
+        dashboard: '/distributor',
       },
       {
         id: 'patient',
@@ -50,7 +50,7 @@ export const AuthModal = ({
         subtitle: 'Scan & verify your medicine',
         icon: UserCheck,
         accent: '#22C55E',
-        dashboard: '/patient/dashboard',
+        dashboard: '/patient',
       },
     ],
     [],
