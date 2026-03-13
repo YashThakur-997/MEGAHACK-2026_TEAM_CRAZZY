@@ -1,7 +1,11 @@
 const express = require('express')
+require('./models/db.connection');
+const authrouter=require('./routes/auth.router');
 
 const app = express()
 app.use(express.json())
+app.use('/auth', authrouter);
+
 
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello, World!' })
