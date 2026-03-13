@@ -3,32 +3,42 @@ const { generateQrDataUrl } = require("../utils/qr");
 const { registerBatchOnChain, getBatchOnChain } = require("../services/blockchain.service");
 const DrugsBatch = require("../models/drugsbatch");
 
+// keep hash fields centralized so register/verify always match
+function getHashInput(batch) {
+  return {
+    batchId: batch.batchId,
+    productName: batch.productName,
+    manufacturerId: batch.manufacturerId,
+    mfgDate: batch.mfgDate,
+    expDate: batch.expDate,
+    quantity: batch.quantity,
+    plantCode: batch.plantCode,
+    timestamp: batch.timestamp,
+  };
+}
+
 // POST /api/drugs/register-batch
 exports.registerBatchWithHashAndQR = async (req, res) => {
   try {
     const batch = req.body;
+    if (!batch?.batchId) {
+      return res.status(400).json({ ok: false, message: "batchId is required" });
+    }
 
-    // Keep only immutable fields for hashing
-    const hashInput = {
-      batchId: batch.batchId,
-      productName: batch.productName,
-      manufacturerId: batch.manufacturerId,
-      mfgDate: batch.mfgDate,
-      expDate: batch.expDate,
-      quantity: batch.quantity,
-      plantCode: batch.plantCode,
-      timestamp: batch.timestamp,
-    };
-
+    const hashInput = getHashInput(batch);
     const dataHash = computeBatchHash(hashInput);
+
+    // FIX: pass batchId (string), not whole batch object
     const txHash = await registerBatchOnChain(batch, dataHash);
 
+    // QR now contains batch info + chain references
     const qrPayload = {
       v: 1,
-      bid: batch.batchId,
-      h: dataHash,
-      tx: txHash,
-      c: process.env.BATCH_REGISTRY_ADDRESS,
+      type: "BATCH_CERT",
+      batch: hashInput,
+      hash: dataHash,
+      txHash,
+      contract: process.env.BATCH_REGISTRY_ADDRESS,
     };
 
     const qrDataUrl = await generateQrDataUrl(qrPayload);
@@ -44,16 +54,10 @@ exports.registerBatchWithHashAndQR = async (req, res) => {
       });
     } catch (dbErr) {
       warning = `Batch saved on-chain, but DB persistence failed: ${dbErr.message}`;
-      saved = {
-        ...batch,
-        dataHash,
-        txHash,
-        qrPayload,
-        persisted: false,
-      };
+      saved = { ...batch, dataHash, txHash, qrPayload, persisted: false };
     }
 
-    return res.status(201).json({ ok: true, batch: saved, qrDataUrl, warning });
+    return res.status(201).json({ ok: true, batch: saved, qrPayload, qrDataUrl, warning });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err.message });
   }
@@ -66,22 +70,12 @@ exports.verifyBatchById = async (req, res) => {
     const batch = await DrugsBatch.findOne({ batchId });
     if (!batch) return res.status(404).json({ ok: false, message: "Batch not found" });
 
-    const recomputed = computeBatchHash({
-      batchId: batch.batchId,
-      productName: batch.productName,
-      manufacturerId: batch.manufacturerId,
-      mfgDate: batch.mfgDate,
-      expDate: batch.expDate,
-      quantity: batch.quantity,
-      plantCode: batch.plantCode,
-      timestamp: batch.timestamp,
-    });
-
+    const recomputed = computeBatchHash(getHashInput(batch));
     const onChain = await getBatchOnChain(batchId);
 
     const verified =
-      recomputed.toLowerCase() === batch.dataHash.toLowerCase() &&
-      onChain.dataHash.toLowerCase() === batch.dataHash.toLowerCase();
+      recomputed.toLowerCase() === String(batch.dataHash).toLowerCase() &&
+      String(onChain.dataHash).toLowerCase() === String(batch.dataHash).toLowerCase();
 
     return res.json({
       ok: true,
