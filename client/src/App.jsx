@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
+<<<<<<< HEAD
+=======
+import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
+
+// UI Components (Ensure these paths are correct in your project)
+>>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
 import { AuthModal } from './components/auth/AuthModal.jsx';
 import SkyToggle from './components/ui/sky-toggle';
@@ -16,11 +22,14 @@ const Navbar = ({ openAuthModal, isDark, onToggleTheme }) => (
           PharmaSeal
         </span>
       </div>
+<<<<<<< HEAD
       <div className={`hidden md:flex flex-1 items-center justify-center gap-12 text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-800'}`}>
         <a href="#how-it-works" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>How it works</a>
         <a href="#roles" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>Network Roles</a>
         <a href="#about" className={`transition-colors cursor-pointer text-base uppercase tracking-wider ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}>About Us</a>
       </div>
+=======
+>>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
       <div className="flex flex-shrink-0 items-center gap-4">
         <div className="hidden md:block">
           <SkyToggle checked={isDark} onChange={onToggleTheme} />
@@ -234,6 +243,7 @@ export default function App() {
   const themeClasses = isDark ? 'bg-black text-white' : 'bg-slate-50 text-slate-900';
 
   return (
+<<<<<<< HEAD
     <div className={`min-h-screen selection:bg-blue-500/30 font-sans ${themeClasses}`}>
       <Navbar openAuthModal={openAuthModal} isDark={isDark} onToggleTheme={handleToggleTheme} />
       
@@ -308,3 +318,13 @@ export default function App() {
     </div>
   )
 }
+=======
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/distributor" element={<PharmaSealDashboard />} />
+        <Route path="/manufacturer" element={<RegisterBatch />} />
+        <Route path="/patient" element={<PatientPortal />} />
+      </Routes>
+  );
+}
+>>>>>>> 0c0965e4e69dacd5e226e4f00088fce630356ab4
