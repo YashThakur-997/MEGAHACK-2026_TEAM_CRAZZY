@@ -1,0 +1,494 @@
+/* ── Patient Dashboard ─────────────────────────────────────────────── */
+
+/* Layout shell */
+.patient-app {
+  width: 100%;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pd-mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* ── Animations ─── */
+@keyframes pd-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+@keyframes pd-scan-line {
+  0% { top: 0; }
+  100% { top: calc(100% - 3px); }
+}
+@keyframes pd-ring-fill {
+  from { stroke-dashoffset: 276.46; }
+}
+@keyframes pd-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.pd-pulsing-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pd-pulse-dot 2s ease-in-out infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ── Screen 1: QR Scan ─── */
+.pd-screen-scan {
+  background: #162032;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 24px;
+  gap: 32px;
+  width: 100%;
+}
+
+.pd-qr-frame {
+  width: 260px; height: 260px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+.pd-qr-frame::before,
+.pd-qr-frame::after,
+.pd-qr-frame .pd-corner-bl,
+.pd-qr-frame .pd-corner-br {
+  content: '';
+  position: absolute;
+  width: 40px; height: 40px;
+  border-color: var(--green);
+  border-style: solid;
+  border-width: 0;
+}
+.pd-qr-frame::before  { top:0; left:0;  border-top-width:4px; border-left-width:4px;  border-top-left-radius:8px; }
+.pd-qr-frame::after   { top:0; right:0; border-top-width:4px; border-right-width:4px; border-top-right-radius:8px; }
+.pd-qr-frame .pd-corner-bl { bottom:0; left:0;  border-bottom-width:4px; border-left-width:4px;  border-bottom-left-radius:8px; }
+.pd-qr-frame .pd-corner-br { bottom:0; right:0; border-bottom-width:4px; border-right-width:4px; border-bottom-right-radius:8px; }
+
+.pd-qr-inner {
+  position: absolute;
+  inset: 28px;
+  display: grid;
+  grid-template-columns: repeat(7,1fr);
+  grid-template-rows: repeat(7,1fr);
+  gap: 4px;
+  opacity: 0.18;
+}
+.pd-qr-inner span { background: #fff; border-radius: 2px; }
+
+.pd-scan-line {
+  position: absolute;
+  left: 8px; right: 8px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, var(--green) 20%, var(--green) 80%, transparent 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 12px var(--green);
+  animation: pd-scan-line 2.2s ease-in-out infinite alternate;
+  top: 0;
+}
+
+.pd-btn-scan {
+  width: 100%;
+  max-width: 320px;
+  padding: 18px 24px;
+  background: var(--green);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.pd-btn-scan:hover { background: var(--green-dim); }
+.pd-btn-scan:active { transform: scale(0.97); }
+
+.pd-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.25);
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ── Screen 2: Product Passport ─── */
+.pd-screen-passport {
+  background: var(--bg);
+  padding-bottom: 40px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pd-status-bar {
+  display: flex;
+  align-items: center;
+  padding: 16px 32px;
+  background: #162032;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.pd-btn-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px;
+  transition: opacity 0.2s;
+}
+.pd-btn-back:hover { opacity: 0.8; }
+.pd-status-bar-title {
+  flex: 1;
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-right: 60px;
+}
+
+/* Hero banner */
+.pd-hero {
+  background: linear-gradient(135deg, #162032 0%, #1e3a5f 100%);
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.pd-verified-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(34,197,94,0.15);
+  border: 1px solid rgba(34,197,94,0.3);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.pd-hero-check {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: rgba(34,197,94,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pd-hero-check svg {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: pd-check-draw 0.6s 0.3s ease forwards;
+}
+
+.pd-hero-title {
+  font-size: 32px;
+  font-weight: bold;
+  color: white;
+  letter-spacing: -0.5px;
+}
+
+.pd-hero-subtitle {
+  font-size: 15px;
+  color: var(--text4);
+}
+.pd-hero-subtitle .pd-mono {
+  font-size: 14px;
+}
+
+/* Desktop Layout Grid */
+.pd-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .pd-layout-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+}
+
+.pd-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pd-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 24px;
+}
+.pd-card-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text4);
+  margin-bottom: 20px;
+}
+
+/* ── Trust ring ── */
+.pd-trust-ring svg { transform: rotate(-90deg); }
+.pd-trust-ring .ring-bg  { fill:none; stroke:var(--border); stroke-width:8; }
+.pd-trust-ring .ring-fg  {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 276.46;
+  stroke-dashoffset: 8.29;
+  animation: pd-ring-fill 1.2s 0.5s ease both;
+}
+.pd-ring-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 1;
+}
+.pd-ring-den {
+  font-size: 12px;
+  color: var(--text4);
+  margin-top: 2px;
+}
+.pd-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-bdr);
+  color: var(--green-dim);
+  font-size: 13px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+/* ── Product Details ── */
+.pd-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pd-detail-tile {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 14px;
+}
+.pd-detail-tile-label {
+  font-size: 12px;
+  color: var(--text4);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.pd-detail-tile-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.pd-detail-tile-value.mono {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+}
+.pd-detail-tile-value.green {
+  color: var(--green-dim);
+}
+
+/* ── Anomaly Banner ── */
+.pd-anomaly-banner {
+  background: var(--green-bg);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.pd-anomaly-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--green-dim);
+}
+.pd-anomaly-sub {
+  font-size: 14px;
+  color: var(--text3);
+  margin-top: 4px;
+  display: block;
+}
+
+/* ── Timeline ── */
+.pd-timeline {
+  position: relative;
+  padding-left: 32px;
+}
+.pd-timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--border);
+}
+.pd-timeline-dot {
+  position: absolute;
+  left: -32px;
+  top: 4px;
+  width: 22px; height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.pd-timeline-date {
+  font-size: 13px;
+  color: var(--text4);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.pd-timeline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+  margin-top: 6px;
+}
+
+/* ── Blockchain Proof ── */
+.pd-proof-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pd-proof-row:last-child { border-bottom: none; }
+.pd-proof-key {
+  font-size: 14px;
+  color: var(--text3);
+  font-weight: 500;
+}
+.pd-proof-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  text-align: right;
+  word-break: break-all;
+}
+.pd-proof-val.green { color: var(--green-dim); }
+
+/* ── Report Banner ── */
+.pd-report-banner {
+  background: var(--blue-bg);
+  border-left: 4px solid var(--blue);
+  border-radius: 8px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.pd-report-banner:hover { opacity: 0.85; }
+.pd-report-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--blue);
+}
+.pd-report-sub {
+  font-size: 14px;
+  color: var(--text3);
+  margin-top: 4px;
+  display: block;
+}
+
+/* ── Bottom Bar for Desktop Mode ── */
+.pd-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+.pd-btn-share {
+  flex: 1;
+  padding: 16px;
+  background: var(--green);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pd-btn-share:hover { background: var(--green-dim); }
+.pd-btn-share:active { transform: scale(0.98); }
+
+.pd-btn-rescan {
+  flex: 1;
+  padding: 16px;
+  background: var(--surface);
+  color: var(--text2);
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  border: 1.5px solid var(--border2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pd-btn-rescan:hover { background: var(--bg); border-color: var(--text4); }
+.pd-btn-rescan:active { transform: scale(0.98); }

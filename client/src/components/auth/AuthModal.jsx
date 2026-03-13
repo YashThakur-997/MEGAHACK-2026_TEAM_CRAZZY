@@ -247,7 +247,7 @@ export const AuthModal = ({
                             <UserPlus size={16} className="text-white" />
                             <span className="text-base font-semibold text-white">Register</span>
                           </div>
-                          <span className="text-sm text-white/80">New to PharmaSeal</span>
+                          <span className="text-sm text-white/80">New to PramanChain</span>
                         </motion.button>
                       </div>
                     </>

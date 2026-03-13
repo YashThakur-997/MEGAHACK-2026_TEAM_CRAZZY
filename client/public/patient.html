@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PramanChain · Verify Your Medicine</title>
+<link rel="icon" type="image/png" href="/pramanchain-logo.png">
+<meta name="description" content="Verify the authenticity of your medicine using PramanChain's blockchain-powered verification system.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#EEF0F5; --surface:#FFFFFF; --border:#E2E8F0; --border2:#CBD5E1;
+  --green:#22C55E; --green-dim:#16A34A; --green-bg:#F0FDF4; --green-bdr:#BBF7D0;
+  --blue:#1D4ED8; --blue-bg:#DBEAFE;
+  --amber:#F59E0B; --amber-bg:#FFFBEB; --amber-bdr:#FCD34D;
+  --red:#EF4444; --red-bg:#FEF2F2; --red-bdr:#FECACA;
+  --purple:#7C3AED; --purple-bg:#EDE9FE; --purple-bdr:#C4B5FD;
+  --text:#0F172A; --text2:#334155; --text3:#64748B; --text4:#94A3B8;
+  --navy:#162032; --navy2:#1e3a5f;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Inter', sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+.app {
+  width:100%;
+  margin:0 auto;
+  min-height:100vh;
+  position:relative;
+  overflow-x:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.mono { font-family:'IBM Plex Mono', monospace; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes pulse-dot {
+  0%, 100% { opacity:1; }
+  50% { opacity:0.25; }
+}
+@keyframes scan-line {
+  0% { top:0; }
+  100% { top:calc(100% - 3px); }
+}
+@keyframes fade-in-up {
+  from { opacity:0; transform:translateY(20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes check-draw {
+  to { stroke-dashoffset:0; }
+}
+@keyframes ring-fill {
+  from { stroke-dashoffset:276.46; }
+}
+
+.pulsing-dot {
+  width:8px; height:8px;
+  border-radius:50%;
+  background:var(--green);
+  animation:pulse-dot 2s ease-in-out infinite;
+  display:inline-block;
+  flex-shrink:0;
+}
+
+/* ─── SCREEN 1 — QR SCAN ─── */
+.screen { display:none; flex-direction:column; min-height:100vh; }
+.screen.active { display:flex; }
+
+.screen-scan {
+  background:var(--navy);
+  align-items:center;
+  justify-content:center;
+  padding:40px 24px;
+  gap:32px;
+}
+
+.logo-hex {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:8px;
+}
+
+.scan-title {
+  color:#FFFFFF;
+  font-size:26px;
+  font-weight:700;
+  text-align:center;
+  letter-spacing:-0.5px;
+}
+.scan-subtitle {
+  color:var(--text4);
+  font-size:14px;
+  text-align:center;
+  margin-top:8px;
+}
+
+.qr-frame-wrapper {
+  position:relative;
+  width:220px; height:220px;
+}
+.qr-frame {
+  width:220px; height:220px;
+  position:relative;
+  border-radius:8px;
+  overflow:hidden;
+}
+/* Green corner brackets */
+.qr-frame::before,
+.qr-frame::after,
+.qr-frame .corner-bl,
+.qr-frame .corner-br {
+  content:'';
+  position:absolute;
+  width:36px; height:36px;
+  border-color:var(--green);
+  border-style:solid;
+  border-width:0;
+}
+.qr-frame::before { top:0; left:0; border-top-width:4px; border-left-width:4px; border-top-left-radius:8px; }
+.qr-frame::after { top:0; right:0; border-top-width:4px; border-right-width:4px; border-top-right-radius:8px; }
+.qr-frame .corner-bl { bottom:0; left:0; border-bottom-width:4px; border-left-width:4px; border-bottom-left-radius:8px; }
+.qr-frame .corner-br { bottom:0; right:0; border-bottom-width:4px; border-right-width:4px; border-bottom-right-radius:8px; }
+
+/* Inner QR pattern */
+.qr-inner {
+  position:absolute;
+  inset:24px;
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  grid-template-rows:repeat(7,1fr);
+  gap:3px;
+  opacity:0.18;
+}
+.qr-inner span {
+  background:#fff;
+  border-radius:2px;
+}
+
+/* Animated scan line */
+.scan-line {
+  position:absolute;
+  left:8px; right:8px;
+  height:3px;
+  background:linear-gradient(90deg, transparent 0%, var(--green) 20%, var(--green) 80%, transparent 100%);
+  border-radius:2px;
+  box-shadow:0 0 12px var(--green);
+  animation:scan-line 2.2s ease-in-out infinite alternate;
+  top:0;
+}
+
+.btn-scan {
+  width:100%;
+  max-width:280px;
+  padding:16px 24px;
+  background:var(--green);
+  color:#fff;
+  font-family:'Inter', sans-serif;
+  font-size:16px;
+  font-weight:600;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  transition:background 0.2s, transform 0.1s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.btn-scan:hover { background:var(--green-dim); }
+.btn-scan:active { transform:scale(0.97); }
+
+.pill-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 16px;
+  border-radius:999px;
+  background:rgba(34,197,94,0.1);
+  border:1px solid rgba(34,197,94,0.25);
+  color:var(--green);
+  font-size:13px;
+  font-weight:500;
+}
+
+/* ─── SCREEN 2 — PRODUCT PASSPORT ─── */
+.screen-passport {
+  background:var(--bg);
+  padding-bottom:140px;
+}
+
+.status-bar {
+  display:flex;
+  align-items:center;
+  padding:12px 16px;
+  background:var(--navy);
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+.btn-back {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#fff;
+  font-family:'Inter', sans-serif;
+  font-size:15px;
+  font-weight:500;
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:8px 4px;
+  transition:opacity 0.2s;
+}
+.btn-back:hover { opacity:0.8; }
+.btn-back svg { flex-shrink:0; }
+.status-bar-title {
+  flex:1;
+  text-align:center;
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  margin-right:60px;
+}
+
+/* Hero Banner */
+.hero-banner {
+  background:linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+  padding:32px 24px 36px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  text-align:center;
+}
+
+.verified-pill {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 14px;
+  border-radius:999px;
+  background:rgba(34,197,94,0.15);
+  border:1px solid rgba(34,197,94,0.3);
+  color:var(--green);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+}
+
+.hero-check {
+  width:72px; height:72px;
+  border-radius:50%;
+  background:rgba(34,197,94,0.15);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.hero-check svg {
+  stroke-dasharray:30;
+  stroke-dashoffset:30;
+  animation:check-draw 0.6s 0.3s ease forwards;
+}
+
+.hero-drug {
+  color:#fff;
+  font-size:24px;
+  font-weight:700;
+  letter-spacing:-0.3px;
+}
+.hero-sub {
+  color:var(--text4);
+  font-size:13px;
+  font-weight:400;
+  line-height:1.5;
+}
+.hero-sub .mono {
+  font-size:12px;
+}
+
+/* Cards Container */
+.cards {
+  padding:32px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+  max-width:1200px;
+  margin:0 auto;
+  align-items:start;
+}
+@media(max-width:768px) {
+  .cards {
+    grid-template-columns:1fr;
+    padding:16px;
+  }
+}
+
+.col-left, .col-right {
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+.card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  padding:20px;
+  animation:fade-in-up 0.5s ease both;
+}
+.card:nth-child(1) { animation-delay:0.1s; }
+.card:nth-child(2) { animation-delay:0.15s; }
+.card:nth-child(3) { animation-delay:0.2s; }
+.card:nth-child(4) { animation-delay:0.25s; }
+.card:nth-child(5) { animation-delay:0.3s; }
+.card:nth-child(6) { animation-delay:0.35s; }
+
+.card-label {
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--text4);
+  margin-bottom:16px;
+}
+
+/* ─── CARD 1: Trust Score ─── */
+.trust-score {
+  display:flex;
+  align-items:center;
+  gap:20px;
+}
+.trust-ring {
+  position:relative;
+  width:90px; height:90px;
+  flex-shrink:0;
+}
+.trust-ring svg { transform:rotate(-90deg); }
+.trust-ring .ring-bg {
+  fill:none;
+  stroke:var(--border);
+  stroke-width:8;
+}
+.trust-ring .ring-fg {
+  fill:none;
+  stroke:var(--green);
+  stroke-width:8;
+  stroke-linecap:round;
+  stroke-dasharray:276.46;
+  stroke-dashoffset:8.29;
+  animation:ring-fill 1.2s 0.5s ease both;
+}
+.trust-ring .ring-text {
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.trust-ring .ring-num {
+  font-size:26px;
+  font-weight:700;
+  color:var(--text);
+  font-family:'IBM Plex Mono', monospace;
+  line-height:1;
+}
+.trust-ring .ring-den {
+  font-size:11px;
+  color:var(--text4);
+  margin-top:2px;
+}
+.trust-info {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.trust-status {
+  font-size:17px;
+  font-weight:600;
+  color:var(--text);
+}
+.trust-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 12px;
+  border-radius:999px;
+  background:var(--green-bg);
+  border:1px solid var(--green-bdr);
+  color:var(--green-dim);
+  font-size:12px;
+  font-weight:600;
+  width:fit-content;
+}
+
+/* ─── CARD 2: Product Details ─── */
+.product-header {
+  margin-bottom:14px;
+}
+.product-drug {
+  font-size:17px;
+  font-weight:600;
+  color:var(--text);
+}
+.product-brand {
+  font-size:13px;
+  color:var(--text3);
+  margin-top:2px;
+}
+.detail-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.detail-tile {
+  background:var(--bg);
+  border-radius:8px;
+  padding:12px;
+}
+.detail-tile-label {
+  font-size:11px;
+  color:var(--text4);
+  font-weight:500;
+  margin-bottom:4px;
+}
+.detail-tile-value {
+  font-size:14px;
+  font-weight:600;
+  color:var(--text);
+}
+.detail-tile-value.mono {
+  font-size:13px;
+}
+.detail-tile-value.green {
+  color:var(--green-dim);
+}
+
+/* ─── CARD 3: Anomaly Banner ─── */
+.anomaly-banner {
+  background:var(--green-bg);
+  border:none;
+  border-left:4px solid var(--green);
+  border-radius:8px;
+  padding:16px 20px;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+.anomaly-icon {
+  width:24px; height:24px;
+  flex-shrink:0;
+  margin-top:1px;
+}
+.anomaly-text strong {
+  display:block;
+  font-size:14px;
+  font-weight:600;
+  color:var(--green-dim);
+}
+.anomaly-text span {
+  font-size:13px;
+  color:var(--text3);
+  margin-top:2px;
+  display:block;
+}
+
+/* ─── CARD 4: Journey Map ─── */
+.timeline {
+  position:relative;
+  padding-left:28px;
+}
+.timeline::before {
+  content:'';
+  position:absolute;
+  left:8px;
+  top:6px;
+  bottom:6px;
+  width:2px;
+  background:var(--border);
+}
+.timeline-step {
+  position:relative;
+  padding-bottom:24px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.timeline-step:last-child { padding-bottom:0; }
+
+.timeline-dot {
+  position:absolute;
+  left:-28px;
+  top:2px;
+  width:18px; height:18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1;
+}
+.dot-green {
+  width:14px; height:14px;
+  border-radius:50%;
+  background:var(--green);
+  border:3px solid var(--green-bg);
+}
+.dot-blue {
+  width:12px; height:12px;
+  border-radius:3px;
+  background:var(--blue);
+  border:3px solid var(--blue-bg);
+}
+.dot-purple {
+  width:14px; height:14px;
+  border-radius:50%;
+  background:var(--purple);
+  border:3px solid var(--purple-bg);
+}
+
+.timeline-title {
+  font-size:14px;
+  font-weight:600;
+  color:var(--text);
+}
+.timeline-date {
+  font-size:12px;
+  color:var(--text4);
+  font-family:'IBM Plex Mono', monospace;
+}
+.timeline-chip {
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:600;
+  width:fit-content;
+  margin-top:4px;
+}
+.chip-green { background:var(--green-bg); color:var(--green-dim); border:1px solid var(--green-bdr); }
+.chip-blue { background:var(--blue-bg); color:var(--blue); border:1px solid #93C5FD; }
+.chip-purple { background:var(--purple-bg); color:var(--purple); border:1px solid var(--purple-bdr); }
+
+/* ─── CARD 5: Blockchain Proof ─── */
+.proof-rows {
+  display:flex;
+  flex-direction:column;
+  gap:0;
+}
+.proof-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.proof-row:last-child { border-bottom:none; }
+.proof-key {
+  font-size:13px;
+  color:var(--text3);
+  font-weight:500;
+}
+.proof-val {
+  font-size:13px;
+  font-weight:600;
+  color:var(--text);
+  font-family:'IBM Plex Mono', monospace;
+  text-align:right;
+  word-break:break-all;
+}
+.proof-val.green { color:var(--green-dim); }
+
+/* ─── CARD 6: Report Banner ─── */
+.report-banner {
+  background:var(--blue-bg);
+  border:none;
+  border-left:4px solid var(--blue);
+  border-radius:8px;
+  padding:16px 20px;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  cursor:pointer;
+  transition:opacity 0.2s;
+}
+.report-banner:hover { opacity:0.85; }
+.report-icon {
+  width:24px; height:24px;
+  flex-shrink:0;
+  margin-top:1px;
+}
+.report-text strong {
+  display:block;
+  font-size:14px;
+  font-weight:600;
+  color:var(--blue);
+}
+.report-text span {
+  font-size:13px;
+  color:var(--text3);
+  margin-top:2px;
+  display:block;
+}
+
+/* ─── Bottom Bar ─── */
+.bottom-bar {
+  max-width:1200px;
+  margin:0 auto;
+  width:100%;
+  padding:0 32px 32px 32px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  z-index:20;
+}
+@media(max-width:768px) {
+  .bottom-bar {
+    grid-template-columns:1fr;
+    padding:16px;
+  }
+}
+.btn-share {
+  width:100%;
+  padding:14px;
+  background:var(--green);
+  color:#fff;
+  font-family:'Inter', sans-serif;
+  font-size:15px;
+  font-weight:600;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  transition:background 0.2s, transform 0.1s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.btn-share:hover { background:var(--green-dim); }
+.btn-share:active { transform:scale(0.98); }
+
+.btn-rescan {
+  width:100%;
+  padding:14px;
+  background:transparent;
+  color:var(--text2);
+  font-family:'Inter', sans-serif;
+  font-size:15px;
+  font-weight:600;
+  border:1.5px solid var(--border2);
+  border-radius:10px;
+  cursor:pointer;
+  transition:background 0.2s, border-color 0.2s, transform 0.1s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.btn-rescan:hover { background:var(--bg); border-color:var(--text4); }
+.btn-rescan:active { transform:scale(0.98); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══════ SCREEN 1 — QR SCAN ═══════ -->
+  <div id="screen-scan" class="screen screen-scan active">
+
+    <!-- Logo -->
+    <div class="logo-hex">
+      <img src="/pramanchain-logo.png" alt="PramanChain" style="width:80px;height:80px;border-radius:12px;object-fit:contain;">
+    </div>
+
+    <div>
+      <h1 class="scan-title">Verify Your Medicine</h1>
+      <p class="scan-subtitle">Scan QR code on medicine packaging</p>
+    </div>
+
+    <!-- QR Frame -->
+    <div class="qr-frame-wrapper">
+      <div class="qr-frame">
+        <div class="corner-bl"></div>
+        <div class="corner-br"></div>
+        <div class="qr-inner">
+          <span></span><span></span><span></span><span style="opacity:0"></span><span></span><span></span><span></span>
+          <span></span><span style="opacity:0"></span><span></span><span></span><span></span><span style="opacity:0"></span><span></span>
+          <span></span><span></span><span></span><span style="opacity:0"></span><span style="opacity:0"></span><span></span><span></span>
+          <span style="opacity:0"></span><span></span><span style="opacity:0"></span><span></span><span style="opacity:0"></span><span></span><span style="opacity:0"></span>
+          <span></span><span></span><span style="opacity:0"></span><span style="opacity:0"></span><span></span><span></span><span></span>
+          <span></span><span style="opacity:0"></span><span></span><span></span><span></span><span style="opacity:0"></span><span></span>
+          <span></span><span></span><span></span><span style="opacity:0"></span><span></span><span></span><span></span>
+        </div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <button class="btn-scan" onclick="showPassport()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Simulate QR Scan
+    </button>
+
+    <!-- Pill -->
+    <div class="pill-badge">
+      <span class="pulsing-dot"></span>
+      No login or account needed
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 2 — PRODUCT PASSPORT ═══════ -->
+  <div id="screen-passport" class="screen screen-passport">
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <button class="btn-back" onclick="showScan()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Back
+      </button>
+      <span class="status-bar-title">PramanChain</span>
+    </div>
+
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+      <div class="verified-pill">
+        <span class="pulsing-dot"></span>
+        BLOCKCHAIN VERIFIED
+      </div>
+      <div class="hero-check">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <path d="M10 18L16 24L26 12" stroke="#22C55E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2 class="hero-drug">Amoxicillin 500mg</h2>
+      <p class="hero-sub">Sun Pharma · Batch <span class="mono">BT-0984-MH</span> · Sealed on Polygon</p>
+    </div>
+
+    <!-- Cards -->
+    <div class="cards">
+
+      <div class="col-left">
+        <!-- CARD 1: Trust Score -->
+        <div class="card">
+          <div class="card-label">Trust Score</div>
+          <div class="trust-score">
+            <div class="trust-ring">
+              <svg width="90" height="90" viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="44"/>
+                <circle class="ring-fg" cx="50" cy="50" r="44"/>
+              </svg>
+              <div class="ring-text">
+                <span class="ring-num">97</span>
+                <span class="ring-den">/ 100</span>
+              </div>
+            </div>
+            <div class="trust-info">
+              <span class="trust-status">Excellent · Authentic</span>
+              <div class="trust-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Verified by PramanChain
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: Product Details -->
+        <div class="card">
+          <div class="card-label">Product Details</div>
+          <div class="product-header">
+            <div class="product-drug">Amoxicillin 500mg</div>
+            <div class="product-brand">Sun Pharmaceutical Industries Ltd.</div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-tile">
+              <div class="detail-tile-label">Batch ID</div>
+              <div class="detail-tile-value mono">BT-0984-MH</div>
+            </div>
+            <div class="detail-tile">
+              <div class="detail-tile-label">Category</div>
+              <div class="detail-tile-value">Antibiotic</div>
+            </div>
+            <div class="detail-tile">
+              <div class="detail-tile-label">Manufactured</div>
+              <div class="detail-tile-value mono">Nov 2024</div>
+            </div>
+            <div class="detail-tile">
+              <div class="detail-tile-label">Expiry</div>
+              <div class="detail-tile-value mono green">Nov 2027</div>
+            </div>
+            <div class="detail-tile">
+              <div class="detail-tile-label">Storage</div>
+              <div class="detail-tile-value">Below 25°C</div>
+            </div>
+            <div class="detail-tile">
+              <div class="detail-tile-label">Units</div>
+              <div class="detail-tile-value mono green">300</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: Anomaly Banner -->
+        <div class="anomaly-banner">
+          <svg class="anomaly-icon" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          <div class="anomaly-text">
+            <strong>No anomalies detected</strong>
+            <span>Supply chain integrity confirmed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-right">
+        <!-- CARD 4: Journey Map -->
+        <div class="card" style="grid-row:span 2">
+          <div class="card-label">Full Journey Map</div>
+          <div class="timeline">
+            <!-- Step 1 -->
+            <div class="timeline-step">
+              <div class="timeline-dot dot-green"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="timeline-title">Manufactured</div>
+              <div class="timeline-date">Nov 12, 2024</div>
+              <div class="timeline-chip chip-green">Hash sealed on Polygon</div>
+            </div>
+            <!-- Step 2 -->
+            <div class="timeline-step">
+              <div class="timeline-dot dot-green"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="timeline-title">Quality Control</div>
+              <div class="timeline-date">Nov 18, 2024</div>
+              <div class="timeline-chip chip-green">Compliance verified</div>
+            </div>
+            <!-- Step 3 -->
+            <div class="timeline-step">
+              <div class="timeline-dot dot-blue"></div>
+              <div class="timeline-title">Distributor Received</div>
+              <div class="timeline-date">Dec 04, 2024</div>
+              <div class="timeline-chip chip-blue">Polygon checkpoint</div>
+            </div>
+            <!-- Step 4 -->
+            <div class="timeline-step">
+              <div class="timeline-dot dot-blue"></div>
+              <div class="timeline-title">Cold Chain Maintained</div>
+              <div class="timeline-date">Dec 10, 2024</div>
+              <div class="timeline-chip chip-blue">IoT verified</div>
+            </div>
+            <!-- Step 5 -->
+            <div class="timeline-step">
+              <div class="timeline-dot dot-purple"></div>
+              <div class="timeline-title">Pharmacy Dispensed</div>
+              <div class="timeline-date">Mar 13, 2026</div>
+              <div class="timeline-chip chip-purple" style="background:transparent;border:none;padding:0;color:var(--text3);font-weight:400;font-size:12px;margin-top:2px;">You are here</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 5: Blockchain Proof -->
+        <div class="card">
+          <div class="card-label">Blockchain Proof</div>
+          <div class="proof-rows">
+            <div class="proof-row">
+              <span class="proof-key">Network</span>
+              <span class="proof-val green">Polygon Mainnet</span>
+            </div>
+            <div class="proof-row">
+              <span class="proof-key">Block</span>
+              <span class="proof-val">47291804</span>
+            </div>
+            <div class="proof-row">
+              <span class="proof-key">Tx Hash</span>
+              <span class="proof-val">0x3f9a...c421</span>
+            </div>
+            <div class="proof-row">
+              <span class="proof-key">Contract</span>
+              <span class="proof-val">0xPhrm...5E3c</span>
+            </div>
+            <div class="proof-row">
+              <span class="proof-key">IPFS</span>
+              <span class="proof-val">Qm7kX...w3pR</span>
+            </div>
+            <div class="proof-row">
+              <span class="proof-key">Anomaly Score</span>
+              <span class="proof-val green">3/100 Safe</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 6: Report Banner -->
+        <div class="report-banner">
+          <svg class="report-icon" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          <div class="report-text">
+            <strong>Report a concern</strong>
+            <span>Report tampered medicine to PramanChain and CDSCO</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.cards -->
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <button class="btn-share">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share Verification Report
+      </button>
+      <button class="btn-rescan" onclick="showScan()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Scan Another Medicine
+      </button>
+    </div>
+
+  </div><!-- /#screen-passport -->
+
+</div><!-- /.app -->
+
+<script>
+function showPassport() {
+  document.getElementById('screen-scan').classList.remove('active');
+  document.getElementById('screen-passport').classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showScan() {
+  document.getElementById('screen-passport').classList.remove('active');
+  document.getElementById('screen-scan').classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
