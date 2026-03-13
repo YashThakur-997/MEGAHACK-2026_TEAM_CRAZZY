@@ -92,19 +92,38 @@ const LandingPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState(null);
+  const [authMode, setAuthMode] = useState(null);
+
+  const openAuthModal = () => {
+    setStep(1);
+    setSelectedRole(null);
+    setAuthMode(null);
+    setIsModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleOverlayClick = () => {
+    closeAuthModal();
+  };
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-500/30">
-      <Navbar openAuthModal={() => setIsModalOpen(true)} />
+      <Navbar openAuthModal={openAuthModal} />
       
       {/* Ensure AuthModal receives these props */}
       <AuthModal 
         isOpen={isModalOpen} 
-        closeModal={() => setIsModalOpen(false)} 
+        closeModal={closeAuthModal}
+        handleOverlayClick={handleOverlayClick}
         step={step} 
         setStep={setStep}
         selectedRole={selectedRole}
         setSelectedRole={setSelectedRole}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
       />
       
       <main>

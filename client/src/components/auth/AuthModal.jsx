@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -73,10 +73,123 @@ export const AuthModal = ({
     if (activeRole?.dashboard) navigate(activeRole.dashboard)
   }
 
+  // --- Registration form state ---
+  const [registerFields, setRegisterFields] = useState({});
+  const [registerError, setRegisterError] = useState(null);
+  const [registerSuccess, setRegisterSuccess] = useState(null);
+
+  // Helper to update form fields
+  const handleFieldChange = (field, value) => {
+    setRegisterFields((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Helper to reset form state on modal open/close/role change
+  useEffect(() => {
+    if (!isOpen || step !== 3 || authMode !== 'register') {
+      setRegisterFields({});
+      setRegisterError(null);
+      setRegisterSuccess(null);
+    }
+  }, [isOpen, step, authMode, selectedRole]);
+
+  // Build payload for backend
+  const cleaned = (value) => (typeof value === 'string' ? value.trim() : value);
+
+  const buildRegisterPayload = () => {
+    let payload = {};
+    if (selectedRole === 'manufacturer') {
+      payload = {
+        email: cleaned(registerFields.email) || '',
+        password: registerFields.password || '',
+        role: 'MANUFACTURER',
+        manufacturerDetails: {
+          companyName: cleaned(registerFields.companyName) || '',
+          drugLicenseNo: cleaned(registerFields.drugLicenseNo) || '',
+          cdscoApprovalNo: cleaned(registerFields.cdscoApprovalNo) || '',
+          gstNumber: cleaned(registerFields.gstNumber) || '',
+          fullName: cleaned(registerFields.fullName) || '',
+          phone: cleaned(registerFields.phone) || '',
+        },
+      };
+
+      const wallet = cleaned(registerFields.walletAddress);
+      if (wallet) payload.walletAddress = wallet;
+    } else if (selectedRole === 'distributor') {
+      payload = {
+        email: cleaned(registerFields.email) || '',
+        password: registerFields.password || '',
+        role: 'DISTRIBUTOR',
+        distributorDetails: {
+          companyName: cleaned(registerFields.companyName) || '',
+          drugLicenseNo: cleaned(registerFields.drugLicenseNo) || '',
+          gstNumber: cleaned(registerFields.gstNumber) || '',
+          stateOfOperation: cleaned(registerFields.stateOfOperation) || '',
+          warehouseAddress: cleaned(registerFields.warehouseAddress) || '',
+          fullName: cleaned(registerFields.fullName) || '',
+          phone: cleaned(registerFields.phone) || '',
+        },
+      };
+
+      const wallet = cleaned(registerFields.walletAddress);
+      if (wallet) payload.walletAddress = wallet;
+    } else if (selectedRole === 'patient') {
+      payload = {
+        email: cleaned(registerFields.email) || '',
+        password: registerFields.password || '',
+        role: 'PATIENT',
+        patientDetails: {
+          fullName: cleaned(registerFields.fullName) || '',
+          phone: cleaned(registerFields.phone) || '',
+          city: cleaned(registerFields.city) || '',
+          aadharNumber: cleaned(registerFields.aadharNumber) || '',
+        },
+      };
+    }
+    return payload;
+  };
+
   const handleRegister = async (e) => {
-    e.preventDefault()
-    closeModal()
-  }
+    e.preventDefault();
+    setRegisterError(null);
+    setRegisterSuccess(null);
+
+    if (registerFields.password !== registerFields.confirmPassword) {
+      setRegisterError('Password and confirm password do not match');
+      return;
+    }
+
+    try {
+      const payload = buildRegisterPayload();
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const res = await fetch(`${apiBase}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        let errMsg = 'Registration failed';
+        const raw = await res.text();
+        if (raw) {
+          try {
+            const err = JSON.parse(raw);
+            if (err.message) errMsg = err.message;
+            if (err.error) errMsg += `: ${err.error}`;
+          } catch {
+            errMsg = raw;
+          }
+        }
+        setRegisterError(errMsg);
+        return;
+      }
+      setRegisterSuccess('Registration successful! You can now log in.');
+      setTimeout(() => {
+        closeModal();
+        setRegisterSuccess(null);
+      }, 1200);
+    } catch (err) {
+      setRegisterError('Network error');
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -297,88 +410,69 @@ export const AuthModal = ({
 
                       {authMode === 'register' && (
                         <form onSubmit={handleRegister} className="flex flex-col">
+                          {registerError && (
+                            <div className="text-red-400 text-xs mb-2 font-mono">{registerError}</div>
+                          )}
+                          {registerSuccess && (
+                            <div className="text-green-400 text-xs mb-2 font-mono">{registerSuccess}</div>
+                          )}
                           {selectedRole === 'manufacturer' && (
                             <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">
-                                — company info
-                              </p>
-                              <AuthInput placeholder="Company name" required />
-                              <AuthInput placeholder="Drug License No.  MFG/2024/XXXXX" required />
-                              <AuthInput placeholder="CDSCO Approval No." required />
-                              <AuthInput placeholder="GST Number  22AAAAA0000A1Z5" required />
-
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">
-                                — authorized person
-                              </p>
-                              <AuthInput placeholder="Authorized person full name" required />
-                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required />
-
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">
-                                — credentials
-                              </p>
-                              <AuthInput type="email" placeholder="Official email" required />
-                              <AuthInput type="password" placeholder="Password" required />
-                              <AuthInput type="password" placeholder="Confirm password" required />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">— company info</p>
+                              <AuthInput placeholder="Company name" required value={registerFields.companyName || ''} onChange={e => handleFieldChange('companyName', e.target.value)} />
+                              <AuthInput placeholder="Drug License No.  MFG/2024/XXXXX" required value={registerFields.drugLicenseNo || ''} onChange={e => handleFieldChange('drugLicenseNo', e.target.value)} />
+                              <AuthInput placeholder="CDSCO Approval No." required value={registerFields.cdscoApprovalNo || ''} onChange={e => handleFieldChange('cdscoApprovalNo', e.target.value)} />
+                              <AuthInput placeholder="GST Number  22AAAAA0000A1Z5" required value={registerFields.gstNumber || ''} onChange={e => handleFieldChange('gstNumber', e.target.value)} />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">— authorized person</p>
+                              <AuthInput placeholder="Authorized person full name" required value={registerFields.fullName || ''} onChange={e => handleFieldChange('fullName', e.target.value)} />
+                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required value={registerFields.phone || ''} onChange={e => handleFieldChange('phone', e.target.value)} />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">— credentials</p>
+                              <AuthInput type="email" placeholder="Official email" required value={registerFields.email || ''} onChange={e => handleFieldChange('email', e.target.value)} />
+                              <AuthInput type="password" placeholder="Password" required value={registerFields.password || ''} onChange={e => handleFieldChange('password', e.target.value)} />
+                              <AuthInput type="password" placeholder="Confirm password" required value={registerFields.confirmPassword || ''} onChange={e => handleFieldChange('confirmPassword', e.target.value)} />
+                              <AuthInput placeholder="Wallet Address (optional)" value={registerFields.walletAddress || ''} onChange={e => handleFieldChange('walletAddress', e.target.value)} />
                             </div>
                           )}
-
                           {selectedRole === 'distributor' && (
                             <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">
-                                — company info
-                              </p>
-                              <AuthInput placeholder="Company / Firm name" required />
-                              <AuthInput
-                                placeholder="Drug Distribution License No.  DL/2024/XXXXX"
-                                required
-                              />
-                              <AuthInput placeholder="GST Number" required />
-                              <AuthInput placeholder="State of operation  Maharashtra, Gujarat..." required />
-                              <AuthInput placeholder="Warehouse address" required />
-
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">
-                                — authorized person
-                              </p>
-                              <AuthInput placeholder="Authorized person full name" required />
-                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required />
-
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">
-                                — credentials
-                              </p>
-                              <AuthInput type="email" placeholder="Official email" required />
-                              <AuthInput type="password" placeholder="Password" required />
-                              <AuthInput type="password" placeholder="Confirm password" required />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">— company info</p>
+                              <AuthInput placeholder="Company / Firm name" required value={registerFields.companyName || ''} onChange={e => handleFieldChange('companyName', e.target.value)} />
+                              <AuthInput placeholder="Drug Distribution License No.  DL/2024/XXXXX" required value={registerFields.drugLicenseNo || ''} onChange={e => handleFieldChange('drugLicenseNo', e.target.value)} />
+                              <AuthInput placeholder="GST Number" required value={registerFields.gstNumber || ''} onChange={e => handleFieldChange('gstNumber', e.target.value)} />
+                              <AuthInput placeholder="State of operation  Maharashtra, Gujarat..." required value={registerFields.stateOfOperation || ''} onChange={e => handleFieldChange('stateOfOperation', e.target.value)} />
+                              <AuthInput placeholder="Warehouse address" required value={registerFields.warehouseAddress || ''} onChange={e => handleFieldChange('warehouseAddress', e.target.value)} />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">— authorized person</p>
+                              <AuthInput placeholder="Authorized person full name" required value={registerFields.fullName || ''} onChange={e => handleFieldChange('fullName', e.target.value)} />
+                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required value={registerFields.phone || ''} onChange={e => handleFieldChange('phone', e.target.value)} />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">— credentials</p>
+                              <AuthInput type="email" placeholder="Official email" required value={registerFields.email || ''} onChange={e => handleFieldChange('email', e.target.value)} />
+                              <AuthInput type="password" placeholder="Password" required value={registerFields.password || ''} onChange={e => handleFieldChange('password', e.target.value)} />
+                              <AuthInput type="password" placeholder="Confirm password" required value={registerFields.confirmPassword || ''} onChange={e => handleFieldChange('confirmPassword', e.target.value)} />
+                              <AuthInput placeholder="Wallet Address (optional)" value={registerFields.walletAddress || ''} onChange={e => handleFieldChange('walletAddress', e.target.value)} />
                             </div>
                           )}
-
                           {selectedRole === 'patient' && (
                             <div className="flex flex-col gap-3 max-h-[55vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">
-                                — personal info
-                              </p>
-                              <AuthInput placeholder="Full name" required />
-                              <AuthInput type="email" placeholder="Email" required />
-                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required />
-                              <AuthInput placeholder="City" required />
-                              <AuthInput placeholder="Aadhar Number  XXXX XXXX XXXX (optional)" />
-
-                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">
-                                — credentials
-                              </p>
-                              <AuthInput type="password" placeholder="Password" required />
-                              <AuthInput type="password" placeholder="Confirm password" required />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase">— personal info</p>
+                              <AuthInput placeholder="Full name" required value={registerFields.fullName || ''} onChange={e => handleFieldChange('fullName', e.target.value)} />
+                              <AuthInput type="email" placeholder="Email" required value={registerFields.email || ''} onChange={e => handleFieldChange('email', e.target.value)} />
+                              <AuthInput type="tel" placeholder="Phone  +91 XXXXX XXXXX" required value={registerFields.phone || ''} onChange={e => handleFieldChange('phone', e.target.value)} />
+                              <AuthInput placeholder="City" required value={registerFields.city || ''} onChange={e => handleFieldChange('city', e.target.value)} />
+                              <AuthInput placeholder="Aadhar Number  XXXX XXXX XXXX (optional)" value={registerFields.aadharNumber || ''} onChange={e => handleFieldChange('aadharNumber', e.target.value)} />
+                              <p className="text-[10px] font-mono text-white/25 tracking-widest uppercase mt-2">— credentials</p>
+                              <AuthInput type="password" placeholder="Password" required value={registerFields.password || ''} onChange={e => handleFieldChange('password', e.target.value)} />
+                              <AuthInput type="password" placeholder="Confirm password" required value={registerFields.confirmPassword || ''} onChange={e => handleFieldChange('confirmPassword', e.target.value)} />
                             </div>
                           )}
-
                           <motion.button
                             whileTap={{ scale: 0.98 }}
                             type="submit"
                             className="w-full h-12 rounded-xl text-base font-semibold text-white mt-4"
                             style={{ background: activeRole?.accent }}
+                            disabled={!!registerSuccess}
                           >
                             Register as {activeRole?.label}
                           </motion.button>
-
                           {selectedRole === 'manufacturer' && (
                             <p className="text-center text-[10px] font-mono text-white/20 mt-3">
                               account pending verification after submission
