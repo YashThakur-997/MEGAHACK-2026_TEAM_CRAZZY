@@ -17,7 +17,10 @@ const drugsBatchSchema = new mongoose.Schema(
     txHash: { type: String, required: true },
     qrPayload: { type: mongoose.Schema.Types.Mixed },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    collection: 'drugbatches',
+  }
 );
 
 const DrugsBatch = mongoose.models.DrugsBatch || mongoose.model('DrugsBatch', drugsBatchSchema);
