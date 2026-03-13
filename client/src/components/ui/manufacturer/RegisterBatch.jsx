@@ -210,28 +210,28 @@ function RegisterBatchContent() {
       <h2 className="text-3xl font-bold text-slate-800">Register Batch</h2>
 
       {/* Info Banner */}
-      <div className="flex items-center gap-3 bg-blue-50/50 border-l-[3px] border-blue-600 p-4 rounded-r-lg shadow-sm">
-        <Info size={18} className="text-blue-600" />
-        <p className="text-blue-800 text-sm font-medium">New batch will be registered on Polygon blockchain for immutable tracking.</p>
+      <div className="info-banner flex items-center gap-3">
+        <Info size={18} style={{ color: "var(--blue)", flexShrink: 0 }} />
+        <p className="text-sm font-medium">New batch will be registered on Polygon blockchain for immutable tracking.</p>
       </div>
 
       {/* Stepper */}
       <div className="flex items-center justify-between py-2 px-1 mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">1</div>
-          <span className="text-emerald-700 font-semibold text-sm">Drug Details</span>
+          <div className="step-done">✓</div>
+          <span className="text-sm font-semibold" style={{ color: "var(--green-dim)" }}>Drug Details</span>
         </div>
-        <div className="flex-1 h-[2px] bg-emerald-600 mx-4"></div>
+        <div className="flex-1 h-[2px] mx-4" style={{ background: "var(--green)" }}></div>
 
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full border-2 border-slate-200 text-slate-400 flex items-center justify-center font-bold text-xs bg-white">2</div>
-          <span className="text-slate-500 font-medium text-sm">Supply Chain</span>
+          <div className="step-pending">2</div>
+          <span className="text-sm font-medium" style={{ color: "var(--text3)" }}>Supply Chain</span>
         </div>
-        <div className="flex-1 h-[2px] bg-slate-200 mx-4"></div>
+        <div className="flex-1 h-[2px] mx-4" style={{ background: "var(--border)" }}></div>
 
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full border-2 border-slate-200 text-slate-400 flex items-center justify-center font-bold text-xs bg-white">3</div>
-          <span className="text-slate-500 font-medium text-sm">Review & Register</span>
+          <div className="step-pending">3</div>
+          <span className="text-sm font-medium" style={{ color: "var(--text3)" }}>Review & Register</span>
         </div>
       </div>
 
@@ -242,22 +242,22 @@ function RegisterBatchContent() {
         <div className="grid grid-cols-2 gap-x-8 gap-y-6">
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Drug Name</label>
-            <input type="text" placeholder="e.g. Paracetamol BP 500mg" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none placeholder:text-slate-400" />
+            <input type="text" placeholder="e.g. Paracetamol BP 500mg" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Batch Number</label>
-            <input type="text" defaultValue="BCH-2023-0891" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800" />
+            <input type="text" defaultValue="BCH-2023-0891" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Manufacturing License</label>
-            <input type="text" defaultValue="ML/2022/TX-90" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800" />
+            <input type="text" defaultValue="ML/2022/TX-90" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Category</label>
-            <select className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-800">
+            <select className="ps-input">
               <option>Analgesics</option>
               <option>Antibiotics</option>
               <option>Vaccines</option>
@@ -266,35 +266,35 @@ function RegisterBatchContent() {
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Manufacturing Date</label>
-            <input type="date" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-400" />
+            <input type="date" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Expiry Date</label>
-            <input type="date" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-400" />
+            <input type="date" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Quantity (Units)</label>
-            <input type="number" defaultValue="50000" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800" />
+            <input type="number" defaultValue="50000" className="ps-input" />
           </div>
 
           <div className="space-y-1.5 flex flex-col">
             <label className="text-sm font-medium text-slate-700">Storage Conditions</label>
-            <input type="text" defaultValue="2°C to 8°C. Dry place" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800" />
+            <input type="text" defaultValue="2°C to 8°C. Dry place" className="ps-input" />
           </div>
 
           <div className="col-span-2 space-y-1.5 flex flex-col pt-2">
             <label className="text-sm font-medium text-slate-700">Active Ingredients</label>
-            <textarea placeholder="List ingredients and concentrations..." className="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none h-24 resize-none placeholder:text-slate-400"></textarea>
+            <textarea placeholder="List ingredients and concentrations..." className="ps-input" style={{ height: "6rem", resize: "none" }}></textarea>
           </div>
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
-          <button className="px-5 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm">
+          <button className="btn-secondary px-5 py-2.5">
             Generate Hash
           </button>
-          <button className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm text-sm">
+          <button className="btn-primary px-6 py-2.5">
             Next: Supply Chain
           </button>
         </div>
@@ -970,15 +970,15 @@ export default function RegisterBatch() {
   const [activeTab, setActiveTab] = useState('register');
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg)", fontFamily: "'Inter', system-ui, sans-serif", color: "var(--text2)" }}>
 
       {/* SIDEBAR */}
-      <aside className="w-64 bg-[#1e293b] flex flex-col text-slate-300">
-        <div className="flex items-center gap-3 px-6 py-8">
-          <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center text-white font-bold text-xl">
+      <aside className="w-64 flex flex-col" style={{ background: "var(--sidebar)", color: "var(--side-mute)" }}>
+        <div className="flex items-center gap-3 px-6 py-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-xl" style={{ background: "var(--green)" }}>
             P
           </div>
-          <span className="text-white font-bold tracking-wide text-lg">
+          <span className="font-bold tracking-wide text-lg" style={{ color: "var(--side-text)" }}>
             PHARMACHAIN
           </span>
         </div>
@@ -1060,25 +1060,25 @@ export default function RegisterBatch() {
           </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-700/50">
-          <div className="flex items-center justify-between cursor-pointer hover:bg-slate-800 p-2 rounded-lg transition-colors">
+        <div className="p-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="flex items-center justify-between cursor-pointer p-2 rounded-lg transition-colors">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-600 overflow-hidden border-2 border-slate-500">
+              <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: "2px solid rgba(34,197,94,0.4)" }}>
                 <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="w-full h-full object-cover" />
               </div>
               <div className="text-left">
-                <p className="text-white text-sm font-semibold">Sun Pharma Ltd</p>
-                <p className="text-slate-400 text-xs font-mono">0xAb3c...8f1d</p>
+                <p className="text-sm font-semibold" style={{ color: "var(--side-text)" }}>Sun Pharma Ltd</p>
+                <p className="text-xs" style={{ fontFamily: "monospace", color: "var(--side-mute)" }}>0xAb3c...8f1d</p>
               </div>
             </div>
-            <Settings size={18} className="text-slate-400" />
+            <Settings size={18} style={{ color: "var(--side-mute)" }} />
           </div>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col overflow-y-auto">
-        <header className="flex items-center justify-between px-8 py-6 bg-slate-50 border-b border-slate-100 sticky top-0 z-20">
+        <header className="flex items-center justify-between px-8 py-6 sticky top-0 z-20" style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-800">
               {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'batchList' ? 'Batch List' : activeTab === 'batchDetail' ? 'Batch Detail' : activeTab === 'anomalyAlerts' ? 'Anomaly Alerts' : activeTab === 'triggerRecall' ? 'Trigger Recall' : activeTab === 'complianceExport' ? 'Compliance Export' : 'Register Batch'}
