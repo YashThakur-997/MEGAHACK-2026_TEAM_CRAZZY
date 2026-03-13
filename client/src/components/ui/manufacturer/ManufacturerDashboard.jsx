@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -70,27 +71,27 @@ export default function ManufacturerDashboard() {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 space-y-2">
-          <a
-            href="#"
+          <Link
+            to="/manufacturer"
             className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50 transition-colors"
           >
             <LayoutDashboard size={20} />
             Dashboard
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/manufacturer/register-batch"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <PlusSquare size={20} />
             Register Batch
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/manufacturer/batch-list"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <Layers size={20} />
             Batch List
-          </a>
+          </Link>
           <a
             href="#"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"

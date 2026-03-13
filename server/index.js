@@ -8,7 +8,6 @@ const app = express()
 app.use(cors());
 app.use(express.json())
 app.use('/auth', authrouter);
-app.use('/drugs', drugrouter);
 
 app.use(cors({
     origin: 'http://localhost:5173',

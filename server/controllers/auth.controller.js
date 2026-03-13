@@ -79,21 +79,6 @@ const signup_handler = async (req, res) => {
         res.status(201).send('User registered successfully');
     }
     catch (err) {
-        if (err.code === 11000) {
-            const duplicateField = Object.keys(err.keyPattern || {})[0] || 'field';
-            return res.status(409).send({
-                message: `${duplicateField} already exists`,
-                error: err.message,
-            });
-        }
-
-        if (err.name === 'ValidationError') {
-            return res.status(400).send({
-                message: 'Validation error',
-                error: err.message,
-            });
-        }
-
         res.status(500).send({
             message: 'Internal Server Error',
             error: err.message,
