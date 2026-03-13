@@ -524,9 +524,9 @@ function Inventory() {
 // ─── NAV ─────────────────────────────────────────────────────────────────────
 const NAV = [
   { id:"dashboard", label:"Dashboard",       badge:null },
-  { id:"scan",      label:"Scan Batch",      badge:{ val:"3", bg:"rgba(34,197,94,0.2)", color:"#22C55E" } },
+  { id:"scan",      label:"Scan Batch",      badge:null },
   { id:"history",   label:"Scan History",    badge:null },
-  { id:"alerts",    label:"Alert Detail",    badge:{ val:"5", bg:"rgba(239,68,68,0.2)",  color:"#EF4444" } },
+  { id:"alerts",    label:"Alert Detail",    badge:null },
   { id:"inventory", label:"Inventory Status",badge:null },
 ];
 
@@ -545,7 +545,7 @@ function PulsingDot({ color="#22C55E", size=6 }) {
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function PharmaSealDashboard() {
+export default function PramanChainDashboard() {
   const [page, setPage] = useState("dashboard");
   const pages = { dashboard:<Dashboard setPage={setPage}/>, scan:<ScanBatch/>, history:<ScanHistory/>, alerts:<AlertDetail/>, inventory:<Inventory/> };
 
@@ -559,7 +559,7 @@ export default function PharmaSealDashboard() {
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
             <HexLogo/>
             <div>
-              <div style={{ color:"#fff", fontSize:15, fontWeight:700, lineHeight:1.1 }}>PharmaSeal</div>
+              <div style={{ color:"#fff", fontSize:15, fontWeight:700, lineHeight:1.1 }}>PramanChain</div>
               <div style={{ ...mono, fontSize:9, color:"#94A3B8", textTransform:"uppercase", letterSpacing:2, marginTop:3 }}>Distributor Node</div>
             </div>
           </div>

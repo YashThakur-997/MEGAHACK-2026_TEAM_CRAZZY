@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
+import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
+import PramanChainDashboard from './components/distributor/DistributorDashboard.jsx';
+import PatientDashboard from './components/patient/PatientDashboard.jsx';
 
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
 import { AuthModal } from './components/auth/AuthModal.jsx';
@@ -26,7 +29,7 @@ const Navbar = ({ openAuthModal, isDark, onToggleTheme }) => (
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-blue-500" />
         <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 text-transparent bg-clip-text tracking-wide">
-          PharmaSeal
+          PramanChain
         </span>
       </div>
 
@@ -166,9 +169,10 @@ const LandingPage = () => {
                   Distributor
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={() => navigate('/patient')}
-                  className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 text-xl"
+                <button onClick={() => navigate('/patient')} className="h-16 px-10 rounded-full text-white font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer text-xl"
+                  style={{ background: "var(--green)", boxShadow: "0 0 20px rgba(34,197,94,0.4)" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--green-dim)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "var(--green)"}
                 >
                   Patient
                   <ChevronRight className="w-5 h-5" />
@@ -188,14 +192,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/distributor" element={<PharmaSealDashboard />} />
-      <Route path="/distributor/dashboard" element={<PharmaSealDashboard />} />
-      <Route path="/manufacturer" element={<ManufacturerDashboard />} />
-      <Route path="/manufacturer/dashboard" element={<ManufacturerDashboard />} />
-      <Route path="/manufacturer/register-batch" element={<RegisterBatch />} />
-      <Route path="/manufacturer/batch-list" element={<BatchList />} />
-      <Route path="/patient" element={<PatientPortal />} />
-      <Route path="/patient/dashboard" element={<PatientPortal />} />
+      <Route path="/distributor" element={<PramanChainDashboard />} />
+      <Route path="/manufacturer" element={<RegisterBatch />} />
+      <Route path="/patient" element={<PatientDashboard />} />
     </Routes>
   );
 }
