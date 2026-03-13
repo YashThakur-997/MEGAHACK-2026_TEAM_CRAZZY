@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   PlusSquare,
@@ -31,6 +32,7 @@ const batches = [
 ];
 
 export default function BatchList() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('batchList');
 
   const getStatusBadge = (status) => {
@@ -61,15 +63,15 @@ export default function BatchList() {
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => navigate('/manufacturer')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50' : 'hover:bg-slate-800 hover:text-white'}`}>
             <LayoutDashboard size={20} />
             Dashboard
           </button>
-          <button onClick={() => setActiveTab('register')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'register' ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => navigate('/manufacturer/register-batch')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'register' ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50' : 'hover:bg-slate-800 hover:text-white'}`}>
             <PlusSquare size={20} />
             Register Batch
           </button>
-          <button onClick={() => setActiveTab('batchList')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'batchList' ? 'bg-slate-700/60 text-emerald-400 font-medium border border-slate-700/50 -ml-1 pl-5' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <button onClick={() => navigate('/manufacturer/batch-list')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'batchList' ? 'bg-slate-700/60 text-emerald-400 font-medium border border-slate-700/50 -ml-1 pl-5' : 'hover:bg-slate-800 hover:text-white'}`}>
             <Layers size={20} />
             Batch List
           </button>
@@ -150,7 +152,7 @@ export default function BatchList() {
                  <Bell size={20} />
                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
                </button>
-               <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
+               <button onClick={() => navigate('/manufacturer/register-batch')} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
                  <PlusSquare size={18} />
                  Register New Batch
                </button>

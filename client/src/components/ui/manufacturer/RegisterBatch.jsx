@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -965,6 +966,7 @@ function ComplianceExportContent() {
 }
 
 export default function RegisterBatch() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('register');
 
   return (
@@ -983,7 +985,7 @@ export default function RegisterBatch() {
 
         <nav className="flex-1 px-4 space-y-2">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => navigate('/manufacturer')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
@@ -993,7 +995,7 @@ export default function RegisterBatch() {
             Dashboard
           </button>
           <button
-            onClick={() => setActiveTab('register')}
+            onClick={() => navigate('/manufacturer/register-batch')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'register'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
@@ -1004,7 +1006,7 @@ export default function RegisterBatch() {
           </button>
 
           <button
-            onClick={() => setActiveTab('batchList')}
+            onClick={() => navigate('/manufacturer/batch-list')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'batchList'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
