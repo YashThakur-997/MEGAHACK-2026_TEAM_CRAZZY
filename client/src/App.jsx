@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
+import { AuthModal } from './components/auth/AuthModal.jsx';
 
 // Navbar Component
-const Navbar = () => (
+const Navbar = ({ openAuthModal }) => (
   <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/10">
     <div className="w-full px-6 md:px-12 lg:px-24 h-20 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -19,10 +20,16 @@ const Navbar = () => (
         <a href="#about" className="hover:text-white transition-colors cursor-pointer text-base uppercase tracking-wider">About Us</a>
       </div>
       <div className="flex flex-shrink-0 items-center gap-4">
-        <button className="hidden lg:block px-6 py-2.5 rounded-full text-white text-sm font-medium hover:text-blue-400 transition-colors cursor-pointer">
+        <button
+          onClick={openAuthModal}
+          className="hidden lg:block px-6 py-2.5 rounded-full text-white text-sm font-medium hover:text-blue-400 transition-colors cursor-pointer"
+        >
           Login
         </button>
-        <button className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.5)] cursor-pointer">
+        <button
+          onClick={openAuthModal}
+          className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.5)] cursor-pointer"
+        >
           Launch App
         </button>
       </div>
@@ -185,9 +192,37 @@ const Footer = () => (
 );
 
 export default function App() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [authMode, setAuthMode] = useState(null);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => {
+      setStep(1);
+      setSelectedRole(null);
+      setAuthMode(null);
+    }, 300);
+  };
+
+  const handleOverlayClick = () => closeModal();
+  const openAuthModal = () => setIsModalOpen(true);
+
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
-      <Navbar />
+      <Navbar openAuthModal={openAuthModal} />
+      <AuthModal
+        isOpen={isModalOpen}
+        step={step}
+        setStep={setStep}
+        selectedRole={selectedRole}
+        setSelectedRole={setSelectedRole}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        closeModal={closeModal}
+        handleOverlayClick={handleOverlayClick}
+      />
       
       <main>
         {/* Hero Section */}
