@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
-import ManufacturerDashboard from './components/ui/manufacturer/ManufacturerDashboard.jsx';
+import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
 
 // UI Components (Ensure these paths are correct in your project)
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
@@ -140,7 +140,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/distributor" element={<PharmaSealDashboard />} />
-        <Route path="/manufacturer" element={<ManufacturerDashboard />} />
+        <Route path="/manufacturer" element={<RegisterBatch />} />
         <Route path="/patient" element={<PatientPortal />} />
       </Routes>
   );
