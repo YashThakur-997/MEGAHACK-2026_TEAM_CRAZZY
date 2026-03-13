@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
@@ -264,7 +265,7 @@ export default function App() {
                   Manufacturer
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
+                <button onClick={() => navigate('/distributor')} className="h-16 px-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 cursor-pointer text-xl">
                   Distributor
                   <ChevronRight className="w-5 h-5" />
                 </button>

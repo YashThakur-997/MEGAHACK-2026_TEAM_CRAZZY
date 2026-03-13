@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmaSeal — Distributor Dashboard</title>
+<meta name="description" content="PharmaSeal Pharmacy & Distributor Dashboard for batch scanning, anomaly detection, and inventory management.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#050d14;--surface:#0a1929;--surface2:#0f2438;--border:#1a3550;
+--teal:#00e5c3;--amber:#ffb020;--red:#ff4d6a;--blue:#3d9fdc;--green:#22d96e;
+--text:#e2eaf2;--text2:#7a9bb5;--text3:#3d6080;
+--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+--sidebar-w:240px;--topbar-h:72px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans)}
+a{color:inherit;text-decoration:none}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:24px 20px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.logo-icon{width:36px;height:36px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column}
+.logo-text span:first-child{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--teal);letter-spacing:1px}
+.logo-text span:last-child{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-top:2px}
+.nav-section{padding:18px 12px 6px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text3);font-weight:600}
+.nav-items{list-style:none;padding:0 8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text2);transition:all .2s;margin-bottom:2px;position:relative}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(0,229,195,.08);color:var(--teal);box-shadow:inset 0 0 20px rgba(0,229,195,.05)}
+.nav-item svg{width:18px;height:18px;flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.nav-badge{margin-left:auto;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--mono)}
+.nav-badge.red{background:rgba(255,77,106,.15);color:var(--red)}
+.nav-badge.teal{background:rgba(0,229,195,.12);color:var(--teal)}
+.sidebar-bottom{margin-top:auto;border-top:1px solid var(--border);padding:16px}
+.user-card{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--blue));display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:var(--bg);position:relative}
+.online-dot{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;background:var(--green);border-radius:50%;border:2px solid var(--surface);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,217,110,.4)}50%{box-shadow:0 0 0 6px rgba(34,217,110,0)}}
+.user-info{display:flex;flex-direction:column}
+.user-info span:first-child{font-size:13px;font-weight:600}
+.user-info span:last-child{font-size:11px;color:var(--text3);font-family:var(--mono)}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:var(--topbar-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;z-index:90}
+.topbar-left h1{font-size:20px;font-weight:700}
+.topbar-left p{font-size:12px;color:var(--text2);margin-top:2px}
+.topbar-right{display:flex;gap:10px}
+.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;transition:all .2s}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--text)}
+.btn-primary{background:var(--teal);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.15);box-shadow:0 0 20px rgba(0,229,195,.25)}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);margin-top:var(--topbar-h);height:calc(100vh - var(--topbar-h));overflow-y:auto;padding:28px}
+
+/* PAGE TRANSITIONS */
+.page{display:none;animation:fadeIn .35s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card.c-teal::before{background:var(--teal)}.stat-card.c-blue::before{background:var(--blue)}
+.stat-card.c-red::before{background:var(--red)}.stat-card.c-amber::before{background:var(--amber)}
+.stat-card.c-green::before{background:var(--green)}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.stat-value{font-family:var(--mono);font-size:28px;font-weight:700}
+.stat-delta{font-size:12px;margin-top:6px;display:flex;align-items:center;gap:4px}
+.stat-delta.up{color:var(--green)}.stat-delta.down{color:var(--red)}
+
+/* TABLES */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);background:var(--surface2);font-weight:600}
+td{padding:12px 16px;font-size:13px;border-top:1px solid var(--border)}
+tr:hover td{background:rgba(0,229,195,.02)}
+.mono{font-family:var(--mono);font-size:12px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.5px}
+.badge-ok{background:rgba(34,217,110,.1);color:var(--green)}
+.badge-warn{background:rgba(255,176,32,.1);color:var(--amber)}
+.badge-alert{background:rgba(255,77,106,.1);color:var(--red)}
+.badge-scan{background:rgba(61,159,220,.1);color:var(--blue)}
+.badge-pending{background:rgba(122,155,181,.1);color:var(--text2)}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 14px;border-radius:8px;font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--teal)}
+.filter-bar input{min-width:220px}
+
+/* TWO-COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
+.panel-title{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.form-group input,.form-group select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:var(--sans);font-size:13px;outline:none;transition:border .2s}
+.form-group input:focus,.form-group select:focus{border-color:var(--teal)}
+
+/* QR ZONE */
+.qr-zone{border:2px dashed var(--border);border-radius:12px;padding:36px;text-align:center;cursor:pointer;transition:all .3s;margin-bottom:18px}
+.qr-zone:hover{border-color:var(--teal);background:rgba(0,229,195,.03)}
+.qr-zone svg{width:48px;height:48px;margin-bottom:10px;color:var(--text3)}
+.qr-zone p{color:var(--text2);font-size:13px}
+.qr-zone .small{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:20px}
+.tl-dot{position:absolute;left:-24px;top:2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--border);background:var(--bg)}
+.tl-dot.done{background:var(--teal);border-color:var(--teal)}
+.tl-dot.pending{border-style:dashed}
+.tl-title{font-size:13px;font-weight:600}.tl-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* SCORE */
+.chain-score{margin-top:18px;padding:14px;background:var(--surface2);border-radius:10px;text-align:center}
+.chain-score .val{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--teal)}
+.chain-score .lbl{font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+
+/* ALERT CARDS */
+.alert-list{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 200px);overflow-y:auto}
+.alert-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;border-left:3px solid transparent}
+.alert-card:hover,.alert-card.sel{background:rgba(0,229,195,.04);border-color:var(--border)}
+.alert-card.crit{border-left-color:var(--red)}.alert-card.warning{border-left-color:var(--amber)}
+.alert-card .a-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.alert-card .a-batch{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.alert-pbar{height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
+.alert-pbar .fill{height:100%;border-radius:3px;transition:width .4s}
+.alert-score{font-family:var(--mono);font-size:12px;margin-top:4px;text-align:right;font-weight:700}
+
+/* DETAIL PANEL */
+.detail-score{font-family:var(--mono);font-size:56px;font-weight:700;text-align:center;margin:10px 0 20px}
+.risk-list{list-style:none;margin-bottom:16px}
+.risk-list li{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px}
+.risk-list li::before{content:'';width:8px;height:8px;border-radius:50%}
+.risk-list li.flagged::before{background:var(--red)}.risk-list li.ok::before{background:var(--green)}
+.evidence-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6}
+.action-btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn-danger{background:rgba(255,77,106,.12);color:var(--red);border:1px solid rgba(255,77,106,.2)}
+.btn-danger:hover{background:rgba(255,77,106,.2)}
+.btn-warn{background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.2)}
+.btn-warn:hover{background:rgba(255,176,32,.2)}
+
+/* PROGRESS BAR (stock) */
+.stock-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;width:100px}
+.stock-bar .fill{height:100%;border-radius:4px}
+
+/* BAR CHART */
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.chart-title{font-size:14px;font-weight:600;margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:140px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar{background:linear-gradient(180deg,var(--teal),rgba(0,229,195,.3));border-radius:4px 4px 0 0;width:100%;min-height:4px;transition:height .5s}
+.bar-label{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.bar-val{font-size:10px;color:var(--teal);font-family:var(--mono)}
+
+/* SUCCESS FLASH */
+.flash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--green);color:var(--bg);padding:16px 36px;border-radius:12px;font-weight:700;font-size:16px;z-index:999;animation:flashIn .3s ease}
+@keyframes flashIn{from{opacity:0;transform:translate(-50%,-50%) scale(.8)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* MINI ALERT FEED */
+.alert-feed{display:flex;flex-direction:column;gap:8px}
+.feed-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;font-size:13px}
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.feed-dot.red{background:var(--red)}.feed-dot.amber{background:var(--amber)}
+.feed-score{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:700}
+
+/* PENDING LIST */
+.pending-list{margin-top:18px}
+.pending-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+<div class="sidebar-logo">
+<svg class="logo-icon" viewBox="0 0 36 36" fill="none"><path d="M18 2L32 10v16L18 34 4 26V10L18 2z" stroke="var(--teal)" stroke-width="2" fill="rgba(0,229,195,.08)"/><path d="M18 8l8 5v10l-8 5-8-5V13l8-5z" stroke="var(--teal)" stroke-width="1.5" fill="none"/><path d="M14 17l3 3 5-6" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div class="logo-text"><span>PharmaSeal</span><span>Distributor</span></div>
+</div>
+<p class="nav-section">Overview</p>
+<ul class="nav-items">
+<li class="nav-item active" onclick="showPage('dashboard',this)" id="nav-dashboard">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+Dashboard</li>
+</ul>
+<p class="nav-section">Core Features</p>
+<ul class="nav-items">
+<li class="nav-item" onclick="showPage('scan',this)" id="nav-scan">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+Scan Batch <span class="nav-badge teal">4</span></li>
+<li class="nav-item" onclick="showPage('history',this)" id="nav-history">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+Scan History</li>
+<li class="nav-item" onclick="showPage('alerts',this)" id="nav-alerts">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+Alert Detail <span class="nav-badge red">2</span></li>
+<li class="nav-item" onclick="showPage('inventory',this)" id="nav-inventory">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+Inventory Status</li>
+</ul>
+<div class="sidebar-bottom">
+<div class="user-card">
+<div class="user-avatar">RK<div class="online-dot"></div></div>
+<div class="user-info"><span>Rajesh Kulkarni</span><span>LIC · MH-2024-007</span></div>
+</div>
+</div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="topbar">
+<div class="topbar-left"><h1 id="page-title">Dashboard</h1><p id="page-sub">Real-time pharmaceutical supply chain overview</p></div>
+<div class="topbar-right">
+<button class="btn btn-ghost" onclick="alert('Search opened')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search</button>
+<button class="btn btn-primary" onclick="showPage('scan',document.getElementById('nav-scan'))"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Scan</button>
+</div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+<!-- ==================== PAGE 1: DASHBOARD ==================== -->
+<section class="page active" id="page-dashboard">
+<div class="stats-grid">
+<div class="stat-card c-teal"><div class="stat-label">Scans Today</div><div class="stat-value">148</div><div class="stat-delta up">▲ 12% vs yesterday</div></div>
+<div class="stat-card c-blue"><div class="stat-label">Pending Scans</div><div class="stat-value">4</div><div class="stat-delta down">▼ 2 from queue</div></div>
+<div class="stat-card c-red"><div class="stat-label">Active Alerts</div><div class="stat-value">5</div><div class="stat-delta down">▲ 2 critical</div></div>
+<div class="stat-card c-amber"><div class="stat-label">Batches In Stock</div><div class="stat-value">312</div><div class="stat-delta up">▲ 8 new today</div></div>
+</div>
+<div class="two-col" style="margin-bottom:24px">
+<div>
+<div class="panel"><div class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Recent Scan Activity</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Batch ID</th><th>Drug</th><th>Qty</th><th>Status</th><th>Time</th></tr></thead>
+<tbody>
+<tr><td class="mono">BT-4821-MH</td><td>Amoxicillin 500mg</td><td>2,400</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">14:32</td></tr>
+<tr><td class="mono">BT-4820-MH</td><td>Metformin 850mg</td><td>1,800</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">14:18</td></tr>
+<tr><td class="mono">BT-4819-MH</td><td>Atorvastatin 20mg</td><td>3,000</td><td><span class="badge badge-warn">Flagged</span></td><td class="mono">13:55</td></tr>
+<tr><td class="mono">BT-4818-MH</td><td>Insulin Glargine</td><td>500</td><td><span class="badge badge-alert">Alert</span></td><td class="mono">13:40</td></tr>
+<tr><td class="mono">BT-4817-MH</td><td>Paracetamol 650mg</td><td>5,000</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">13:12</td></tr>
+</tbody></table></div></div>
+</div>
+<div>
+<div class="panel"><div class="panel-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>Active Alerts</div>
+<div class="alert-feed">
+<div class="feed-item"><div class="feed-dot red"></div>Counterfeit risk — BT-4818-MH<div class="feed-score" style="color:var(--red)">92%</div></div>
+<div class="feed-item"><div class="feed-dot red"></div>Cold chain breach — BT-4803-MH<div class="feed-score" style="color:var(--red)">87%</div></div>
+<div class="feed-item"><div class="feed-dot amber"></div>Late checkpoint — BT-4819-MH<div class="feed-score" style="color:var(--amber)">64%</div></div>
+<div class="feed-item"><div class="feed-dot amber"></div>Duplicate serial — BT-4810-MH<div class="feed-score" style="color:var(--amber)">58%</div></div>
+<div class="feed-item"><div class="feed-dot amber"></div>Expiry proximity — BT-4799-MH<div class="feed-score" style="color:var(--amber)">45%</div></div>
+</div></div>
+</div>
+</div>
+<div class="chart-wrap">
+<div class="chart-title">Scan Rate by Hour (Today)</div>
+<div class="bar-chart" id="scanChart"></div>
+</div>
+</section>
+
+<!-- PAGE 2: SCAN BATCH -->
+<section class="page" id="page-scan">
+<div class="two-col">
+<div>
+<div class="qr-zone" id="qrZone" onclick="simulateScan()">
+<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="14" height="14" rx="2"/><rect x="30" y="4" width="14" height="14" rx="2"/><rect x="4" y="30" width="14" height="14" rx="2"/><rect x="22" y="22" width="4" height="4"/><rect x="30" y="30" width="4" height="4"/><rect x="38" y="38" width="4" height="4"/><rect x="30" y="38" width="4" height="4"/><rect x="38" y="30" width="4" height="4"/></svg>
+<p>Tap to Simulate QR / Barcode Scan</p>
+<p class="small">Batch ID will auto-populate</p>
+</div>
+<div class="form-grid">
+<div class="form-group"><label>Batch ID</label><input type="text" id="batchId" placeholder="BT-XXXX-MH"></div>
+<div class="form-group"><label>Drug Name</label><input type="text" id="drugName" placeholder="e.g. Amoxicillin 500mg"></div>
+<div class="form-group"><label>Manufacturer</label><select id="manufacturer"><option value="">Select…</option><option>Sun Pharma</option><option>Cipla</option><option>Dr. Reddy's</option><option>Alkem</option><option>Zydus</option><option>Mankind</option><option>Sanofi</option></select></div>
+<div class="form-group"><label>Quantity</label><input type="number" id="qty" placeholder="Units"></div>
+<div class="form-group"><label>Mfg Date</label><input type="date" id="mfgDate"></div>
+<div class="form-group"><label>Expiry Date</label><input type="date" id="expDate"></div>
+<div class="form-group full"><label>Checkpoint Location</label><select id="checkpoint"><option value="">Select…</option><option>Mumbai Warehouse</option><option>Pune Hub</option><option>Thane Branch</option><option>Cold Storage Bay</option></select></div>
+</div>
+<button class="btn btn-primary" style="margin-top:16px;width:100%;justify-content:center;padding:13px" onclick="logBatch()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Log &amp; Verify Batch</button>
+</div>
+<div>
+<div class="panel">
+<div class="panel-title">Checkpoint Timeline</div>
+<div class="timeline">
+<div class="tl-item"><div class="tl-dot done"></div><div class="tl-title">Manufactured</div><div class="tl-sub">Sun Pharma, Vapi · 08 Mar 2026</div></div>
+<div class="tl-item"><div class="tl-dot done"></div><div class="tl-title">Quality Tested</div><div class="tl-sub">NABL Lab, Ahmedabad · 09 Mar 2026</div></div>
+<div class="tl-item"><div class="tl-dot done"></div><div class="tl-title">Dispatched</div><div class="tl-sub">Central Depot, Nashik · 10 Mar 2026</div></div>
+<div class="tl-item"><div class="tl-dot done"></div><div class="tl-title">In Transit</div><div class="tl-sub">Mumbai Warehouse · 11 Mar 2026</div></div>
+<div class="tl-item"><div class="tl-dot pending"></div><div class="tl-title">Received at Distributor</div><div class="tl-sub">Awaiting scan…</div></div>
+<div class="tl-item"><div class="tl-dot pending"></div><div class="tl-title">Dispensed to Retailer</div><div class="tl-sub">Pending</div></div>
+</div>
+<div class="chain-score"><div class="val">87%</div><div class="lbl">Chain Integrity Score</div></div>
+</div>
+<div class="pending-list">
+<div class="panel-title" style="margin-top:10px">Pending Batches</div>
+<div class="pending-item"><span class="mono">BT-4822-MH</span><span>Cetirizine 10mg</span><span class="badge badge-pending">Pending</span></div>
+<div class="pending-item"><span class="mono">BT-4823-MH</span><span>Omeprazole 20mg</span><span class="badge badge-scan">Scanning</span></div>
+<div class="pending-item"><span class="mono">BT-4824-MH</span><span>Pantoprazole 40mg</span><span class="badge badge-pending">Pending</span></div>
+<div class="pending-item"><span class="mono">BT-4825-MH</span><span>Azithromycin 250mg</span><span class="badge badge-pending">Pending</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- PAGE 3: SCAN HISTORY -->
+<section class="page" id="page-history">
+<div class="filter-bar">
+<input type="text" placeholder="Search batch ID, drug, or manufacturer…">
+<select><option>All Statuses</option><option>Verified</option><option>Flagged</option><option>Alert</option><option>Pending</option></select>
+<input type="date"><span style="color:var(--text3);font-size:13px">to</span><input type="date">
+<button class="btn btn-ghost" style="margin-left:auto">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Batch ID</th><th>Drug</th><th>Manufacturer</th><th>Qty</th><th>Anomaly</th><th>Status</th><th>Scanned At</th><th>Location</th></tr></thead>
+<tbody>
+<tr><td class="mono">BT-4821-MH</td><td>Amoxicillin 500mg</td><td>Sun Pharma</td><td>2,400</td><td class="mono" style="color:var(--green)">0.08</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">13 Mar 14:32</td><td>Mumbai Warehouse</td></tr>
+<tr><td class="mono">BT-4820-MH</td><td>Metformin 850mg</td><td>Cipla</td><td>1,800</td><td class="mono" style="color:var(--green)">0.12</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">13 Mar 14:18</td><td>Pune Hub</td></tr>
+<tr><td class="mono">BT-4819-MH</td><td>Atorvastatin 20mg</td><td>Dr. Reddy's</td><td>3,000</td><td class="mono" style="color:var(--amber)">0.64</td><td><span class="badge badge-warn">Flagged</span></td><td class="mono">13 Mar 13:55</td><td>Mumbai Warehouse</td></tr>
+<tr><td class="mono">BT-4818-MH</td><td>Insulin Glargine</td><td>Sanofi</td><td>500</td><td class="mono" style="color:var(--red)">0.92</td><td><span class="badge badge-alert">Alert</span></td><td class="mono">13 Mar 13:40</td><td>Cold Storage Bay</td></tr>
+<tr><td class="mono">BT-4817-MH</td><td>Paracetamol 650mg</td><td>Mankind</td><td>5,000</td><td class="mono" style="color:var(--green)">0.05</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">13 Mar 13:12</td><td>Thane Branch</td></tr>
+<tr><td class="mono">BT-4816-MH</td><td>Azithromycin 250mg</td><td>Alkem</td><td>1,200</td><td class="mono" style="color:var(--green)">0.11</td><td><span class="badge badge-ok">Verified</span></td><td class="mono">13 Mar 12:48</td><td>Mumbai Warehouse</td></tr>
+<tr><td class="mono">BT-4815-MH</td><td>Cetirizine 10mg</td><td>Zydus</td><td>4,000</td><td class="mono" style="color:var(--amber)">0.58</td><td><span class="badge badge-warn">Flagged</span></td><td class="mono">13 Mar 12:20</td><td>Pune Hub</td></tr>
+<tr><td class="mono">BT-4803-MH</td><td>Insulin Glargine</td><td>Sanofi</td><td>600</td><td class="mono" style="color:var(--red)">0.87</td><td><span class="badge badge-alert">Alert</span></td><td class="mono">12 Mar 17:05</td><td>Cold Storage Bay</td></tr>
+<tr><td class="mono">BT-4810-MH</td><td>Omeprazole 20mg</td><td>Dr. Reddy's</td><td>2,200</td><td class="mono" style="color:var(--amber)">0.58</td><td><span class="badge badge-warn">Flagged</span></td><td class="mono">12 Mar 15:30</td><td>Mumbai Warehouse</td></tr>
+<tr><td class="mono">BT-4799-MH</td><td>Lisinopril 10mg</td><td>Cipla</td><td>1,500</td><td class="mono" style="color:var(--amber)">0.45</td><td><span class="badge badge-warn">Flagged</span></td><td class="mono">12 Mar 10:15</td><td>Thane Branch</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- PAGE 4: ALERT DETAIL -->
+<section class="page" id="page-alerts">
+<div class="two-col">
+<div>
+<div class="panel-title">Alert Queue</div>
+<div class="alert-list" id="alertList">
+<!-- Populated by JS -->
+</div>
+</div>
+<div>
+<div class="panel" id="alertDetail">
+<div class="panel-title" id="alertDetailTitle">Select an alert</div>
+<div id="alertDetailContent"><p style="color:var(--text3)">Click an alert from the left panel to view details.</p></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- PAGE 5: INVENTORY STATUS -->
+<section class="page" id="page-inventory">
+<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+<div class="stat-card c-teal"><div class="stat-label">Total Batches</div><div class="stat-value">312</div></div>
+<div class="stat-card c-amber"><div class="stat-label">Low Stock</div><div class="stat-value">18</div></div>
+<div class="stat-card c-red"><div class="stat-label">Quarantined</div><div class="stat-value">3</div></div>
+</div>
+<div class="filter-bar">
+<input type="text" placeholder="Search drug or batch…">
+<select><option>All Categories</option><option>Antibiotics</option><option>Antidiabetics</option><option>Cardiovascular</option><option>Analgesics</option><option>Gastrointestinal</option></select>
+<select><option>All Statuses</option><option>In Stock</option><option>Low Stock</option><option>Quarantined</option></select>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Drug</th><th>Batch ID</th><th>Manufacturer</th><th>Stock Level</th><th>Units</th><th>Expiry</th><th>Location</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Amoxicillin 500mg</td><td class="mono">BT-4821-MH</td><td>Sun Pharma</td><td><div class="stock-bar"><div class="fill" style="width:85%;background:var(--green)"></div></div></td><td style="color:var(--green)">2,400</td><td class="mono">Dec 2027</td><td>Mumbai Warehouse</td><td><span class="badge badge-ok">In Stock</span></td></tr>
+<tr><td>Metformin 850mg</td><td class="mono">BT-4820-MH</td><td>Cipla</td><td><div class="stock-bar"><div class="fill" style="width:62%;background:var(--green)"></div></div></td><td style="color:var(--green)">1,800</td><td class="mono">Sep 2027</td><td>Pune Hub</td><td><span class="badge badge-ok">In Stock</span></td></tr>
+<tr><td>Paracetamol 650mg</td><td class="mono">BT-4817-MH</td><td>Mankind</td><td><div class="stock-bar"><div class="fill" style="width:90%;background:var(--green)"></div></div></td><td style="color:var(--green)">5,000</td><td class="mono">Mar 2028</td><td>Thane Branch</td><td><span class="badge badge-ok">In Stock</span></td></tr>
+<tr><td>Azithromycin 250mg</td><td class="mono">BT-4816-MH</td><td>Alkem</td><td><div class="stock-bar"><div class="fill" style="width:22%;background:var(--amber)"></div></div></td><td style="color:var(--amber)">320</td><td class="mono">Nov 2026</td><td>Mumbai Warehouse</td><td><span class="badge badge-warn">Low Stock</span></td></tr>
+<tr><td>Cetirizine 10mg</td><td class="mono">BT-4815-MH</td><td>Zydus</td><td><div class="stock-bar"><div class="fill" style="width:15%;background:var(--red)"></div></div></td><td style="color:var(--red)">180</td><td class="mono">Jun 2026</td><td>Pune Hub</td><td><span class="badge badge-warn">Low Stock</span></td></tr>
+<tr><td>Insulin Glargine</td><td class="mono">BT-4818-MH</td><td>Sanofi</td><td><div class="stock-bar"><div class="fill" style="width:0%;background:var(--red)"></div></div></td><td style="color:var(--red)">0</td><td class="mono">Jan 2027</td><td>Cold Storage Bay</td><td><span class="badge badge-alert">Quarantined</span></td></tr>
+<tr><td>Atorvastatin 20mg</td><td class="mono">BT-4819-MH</td><td>Dr. Reddy's</td><td><div class="stock-bar"><div class="fill" style="width:0%;background:var(--red)"></div></div></td><td style="color:var(--red)">0</td><td class="mono">Aug 2027</td><td>Mumbai Warehouse</td><td><span class="badge badge-alert">Quarantined</span></td></tr>
+</tbody></table></div>
+</section>
+
+</main>
+
+<script>
+/* PAGE SWITCHING */
+const titles={dashboard:['Dashboard','Real-time pharmaceutical supply chain overview'],scan:['Scan Batch','Receive & log checkpoint verification'],history:['Scan History','All scans with anomaly detection flags'],alerts:['Alert Detail','Anomaly score analysis & evidence review'],inventory:['Inventory Status','Current batch stock levels & status']};
+function showPage(id,el){
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+document.getElementById('page-'+id).classList.add('active');
+document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+if(el)el.classList.add('active');
+document.getElementById('page-title').textContent=titles[id][0];
+document.getElementById('page-sub').textContent=titles[id][1];
+}
+
+/* QR SCAN SIMULATION */
+function simulateScan(){
+const ids=['BT-4826-MH','BT-4827-MH','BT-4828-MH','BT-4829-MH'];
+const drugs=['Amoxicillin 500mg','Metformin 850mg','Cetirizine 10mg','Omeprazole 20mg'];
+const r=Math.floor(Math.random()*ids.length);
+document.getElementById('batchId').value=ids[r];
+document.getElementById('drugName').value=drugs[r];
+const qz=document.getElementById('qrZone');
+qz.style.borderColor='var(--teal)';qz.style.background='rgba(0,229,195,.06)';
+qz.querySelector('p').textContent='✓ Scanned: '+ids[r];
+setTimeout(()=>{qz.style.borderColor='';qz.style.background='';qz.querySelector('p').textContent='Tap to Simulate QR / Barcode Scan'},2500);
+}
+
+/* LOG BATCH */
+function logBatch(){
+const f=document.createElement('div');f.className='flash';f.textContent='✓ Batch Logged!';
+document.body.appendChild(f);
+setTimeout(()=>f.remove(),2000);
+document.getElementById('batchId').value='';document.getElementById('drugName').value='';
+document.getElementById('qty').value='';
+}
+
+/* BAR CHART */
+(function(){
+const data=[{h:'6am',v:8},{h:'7am',v:14},{h:'8am',v:22},{h:'9am',v:31},{h:'10am',v:28},{h:'11am',v:35},{h:'12pm',v:19},{h:'1pm',v:26},{h:'2pm',v:18},{h:'3pm',v:0},{h:'4pm',v:0},{h:'5pm',v:0}];
+const max=Math.max(...data.map(d=>d.v));
+const chart=document.getElementById('scanChart');
+data.forEach(d=>{
+const col=document.createElement('div');col.className='bar-col';
+const val=document.createElement('div');val.className='bar-val';val.textContent=d.v||'';
+const bar=document.createElement('div');bar.className='bar';bar.style.height=(d.v/max*100)+'%';
+if(!d.v){bar.style.background='var(--border)';bar.style.minHeight='4px'}
+const lbl=document.createElement('div');lbl.className='bar-label';lbl.textContent=d.h;
+col.append(val,bar,lbl);chart.appendChild(col);
+});
+})();
+
+/* ALERTS DATA & RENDERING */
+const alerts=[
+{id:1,type:'crit',title:'Counterfeit Packaging Detected',batch:'BT-4818-MH',drug:'Insulin Glargine',mfr:'Sanofi',score:92,
+ risks:[{t:'Hologram mismatch',f:true},{t:'Serial number duplicate',f:true},{t:'Weight variance > 5%',f:true},{t:'Packaging print quality',f:false}],
+ evidence:'Automated visual inspection flagged hologram inconsistencies on 92% of sampled units.  Serial number BT-4818-MH-0042 was previously registered in Gujarat distribution chain on 28 Feb 2026. Weight deviation of 6.2% detected across batch sample of 50 units, exceeding the 5% tolerance threshold.'},
+{id:2,type:'crit',title:'Cold Chain Breach',batch:'BT-4803-MH',drug:'Insulin Glargine',mfr:'Sanofi',score:87,
+ risks:[{t:'Temperature excursion > 8°C',f:true},{t:'Duration > 4 hours',f:true},{t:'Packaging integrity',f:false},{t:'Visual degradation',f:false}],
+ evidence:'IoT sensor data shows temperature spike to 14.3°C for 6h 22m during transit from Nashik to Mumbai on 11 Mar 2026. Cold chain protocol requires 2–8°C. Insulin Glargine is temperature-sensitive — efficacy may be compromised.'},
+{id:3,type:'warning',title:'Late Checkpoint Arrival',batch:'BT-4819-MH',drug:'Atorvastatin 20mg',mfr:"Dr. Reddy's",score:64,
+ risks:[{t:'Arrival delay > 48h',f:true},{t:'Route deviation detected',f:true},{t:'Packaging intact',f:false},{t:'Documentation complete',f:false}],
+ evidence:'Batch arrived 52 hours after expected delivery window. GPS tracking shows a 140 km detour via Kolhapur, deviating from the approved Nashik–Mumbai route. No tampering evidence found, but delay warrants investigation.'},
+{id:4,type:'warning',title:'Duplicate Serial Numbers',batch:'BT-4810-MH',drug:'Omeprazole 20mg',mfr:"Dr. Reddy's",score:58,
+ risks:[{t:'Serial collision detected',f:true},{t:'Batch origin mismatch',f:false},{t:'Packaging intact',f:false},{t:'Quantity matches manifest',f:false}],
+ evidence:'Serial numbers 0010–0025 in this batch match serials previously logged under BT-4702-MH (dispatched Feb 2026). Likely a serialization system error at manufacturing. Requires manufacturer confirmation.'},
+{id:5,type:'warning',title:'Near-Expiry Stock',batch:'BT-4799-MH',drug:'Lisinopril 10mg',mfr:'Cipla',score:45,
+ risks:[{t:'Expiry within 90 days',f:true},{t:'No recall notice',f:false},{t:'Storage conditions met',f:false},{t:'Visual inspection pass',f:false}],
+ evidence:'Batch expires 15 Jun 2026 (94 days remaining). Current stock: 1,500 units. Recommend prioritizing dispatch to high-turnover retail outlets or initiating return-to-manufacturer protocol if not dispensed within 60 days.'}
+];
+
+function renderAlerts(){
+const list=document.getElementById('alertList');
+list.innerHTML='';
+alerts.forEach((a,i)=>{
+const c=document.createElement('div');
+c.className='alert-card '+(a.type==='crit'?'crit':'warning')+(i===0?' sel':'');
+c.onclick=()=>{document.querySelectorAll('.alert-card').forEach(x=>x.classList.remove('sel'));c.classList.add('sel');showAlertDetail(a)};
+const col=a.type==='crit'?'var(--red)':'var(--amber)';
+c.innerHTML=`<div class="a-title">${a.title}</div><div class="a-batch">${a.batch} · ${a.drug}</div>
+<div class="alert-pbar"><div class="fill" style="width:${a.score}%;background:${col}"></div></div>
+<div class="alert-score" style="color:${col}">${a.score}%</div>`;
+list.appendChild(c);
+});
+showAlertDetail(alerts[0]);
+}
+
+function showAlertDetail(a){
+const col=a.type==='crit'?'var(--red)':'var(--amber)';
+const lbl=a.type==='crit'?'CRITICAL':'WARNING';
+document.getElementById('alertDetailTitle').innerHTML=`<span class="badge ${a.type==='crit'?'badge-alert':'badge-warn'}">${lbl}</span> ${a.title}`;
+let risksHtml=a.risks.map(r=>`<li class="${r.f?'flagged':'ok'}">${r.t}</li>`).join('');
+document.getElementById('alertDetailContent').innerHTML=`
+<div class="detail-score" style="color:${col}">${a.score}%</div>
+<h4 style="font-size:13px;color:var(--text2);margin-bottom:8px">RISK FACTORS</h4>
+<ul class="risk-list">${risksHtml}</ul>
+<h4 style="font-size:13px;color:var(--text2);margin-bottom:8px">EVIDENCE</h4>
+<div class="evidence-box">${a.evidence}</div>
+<div class="action-btns">
+<button class="btn btn-danger" onclick="alert('Report submitted to CDSCO')">Report to Authority (CDSCO)</button>
+<button class="btn btn-warn" onclick="alert('Batch quarantined')">Quarantine Batch</button>
+<button class="btn btn-ghost" onclick="alert('Alert dismissed')">Dismiss</button>
+</div>`;
+}
+renderAlerts();
+</script>
+</body>
+</html>
