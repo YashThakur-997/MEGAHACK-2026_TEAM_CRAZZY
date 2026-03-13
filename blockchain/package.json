@@ -1,0 +1,18 @@
+{
+  "name": "pharmaseal-blockchain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pharmacy supply chain blockchain verification smart contracts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js",
+    "simulate:flow": "hardhat run scripts/simulate-flow.js",
+    "simulate:recall": "hardhat run scripts/simulate-recall.js",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.24.1"
+  }
+}
