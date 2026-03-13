@@ -24,11 +24,6 @@ const Navbar = ({ openAuthModal }) => (
           PharmaSeal
         </span>
       </div>
-      <div className="hidden md:flex flex-1 items-center justify-center gap-12 text-sm font-medium text-gray-300">
-        <a href="#how-it-works" className="hover:text-white transition-colors cursor-pointer text-base uppercase tracking-wider">How it works</a>
-        <a href="#roles" className="hover:text-white transition-colors cursor-pointer text-base uppercase tracking-wider">Network Roles</a>
-        <a href="#about" className="hover:text-white transition-colors cursor-pointer text-base uppercase tracking-wider">About Us</a>
-      </div>
       <div className="flex flex-shrink-0 items-center gap-4">
         <button onClick={openAuthModal} className="hidden lg:block px-6 py-2.5 rounded-full text-white text-sm font-medium hover:text-blue-400 transition-colors cursor-pointer">
           Login
