@@ -4,7 +4,9 @@ const signupvalidation = (req, res, next) => {
     let signupSchema = joi.object({
         username: joi.string().min(3).max(30).required(),
         email: joi.string().email().required(),
-        password: joi.string().min(6).max(30).required() // Changed from pattern
+        password: joi.string().min(6).max(30).required(),
+        role: joi.string().valid('MANUFACTURER', 'DISTRIBUTOR', 'PHARMACY', 'CONSUMER').optional(),
+        walletAddress: joi.string().optional() // Optional for consumers
     });
     const error = signupSchema.validate(req.body).error;
     if (error) {

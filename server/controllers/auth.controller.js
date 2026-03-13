@@ -15,7 +15,7 @@ const login_handler = async (req, res) => {
         if (!isMatch) {
             return res.status(401).send('Invalid credentials');
         }
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        const token = jwt.sign({ id: user._id , role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
         // res.send({ message: 'Login successful', token: token });
         res.cookie('token', token, {
             httpOnly: true,
@@ -36,12 +36,12 @@ const login_handler = async (req, res) => {
 
 const signup_handler = async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password , role, walletAddress } = req.body;
         const existingUser = await UserModel.findOne({ email: email });
         if (existingUser) {
             return res.status(409).send('User already exists');
         }
-        const newUser = new UserModel({ username, email, password });
+        const newUser = new UserModel({ username, email, password, role, walletAddress });
         newUser.password = await bcrypt.hash(password, 10);
         await newUser.save();
         res.status(201).send('User registered successfully');
