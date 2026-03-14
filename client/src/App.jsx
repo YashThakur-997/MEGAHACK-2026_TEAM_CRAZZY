@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Link as LinkIcon, Activity, ChevronRight, Database } from 'lucide-react';
-import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
-import PramanChainDashboard from './components/distributor/DistributorDashboard.jsx';
 import PatientDashboard from './components/patient/PatientDashboard.jsx';
-
 import { DotGlobeHero } from './components/ui/globe-hero.jsx';
 import { AuthModal } from './components/auth/AuthModal.jsx';
-import PharmaSealDashboard from './components/distributor/DistributorDashboard.jsx';
 import ManufacturerDashboard from './components/ui/manufacturer/ManufacturerDashboard.jsx';
 import RegisterBatch from './components/ui/manufacturer/RegisterBatch.jsx';
 import BatchList from './components/ui/manufacturer/BatchList.jsx';
+import BatchDetail from './components/ui/manufacturer/BatchDetail.jsx';
+import AnomalyAlerts from './components/ui/manufacturer/AnomalyAlerts.jsx';
+import TriggerRecall from './components/ui/manufacturer/TriggerRecall.jsx';
 import SkyToggle from './components/ui/sky-toggle';
+import DistributorDashboard from './components/distributor/DistributorDashboard.jsx';
 
 const PatientPortal = () => (
   <div className="min-h-screen bg-black text-white grid place-items-center px-6">
@@ -192,8 +192,15 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/distributor" element={<PramanChainDashboard />} />
-      <Route path="/manufacturer" element={<RegisterBatch />} />
+      <Route path="/distributor" element={<DistributorDashboard />} />
+      <Route path="/manufacturer" element={<ManufacturerDashboard />} />
+      <Route path="/manufacturer/register-batch" element={<RegisterBatch />} />
+      <Route path="/manufacturer/compliance-export" element={<RegisterBatch initialTab="complianceExport" />} />
+      <Route path="/manufacturer/batch-list" element={<BatchList />} />
+      <Route path="/manufacturer/batch-detail" element={<BatchDetail />} />
+      <Route path="/manufacturer/batch-detail/:batchId" element={<BatchDetail />} />
+      <Route path="/manufacturer/anomaly-alerts" element={<AnomalyAlerts />} />
+      <Route path="/manufacturer/trigger-recall" element={<TriggerRecall />} />
       <Route path="/patient" element={<PatientDashboard />} />
     </Routes>
   );

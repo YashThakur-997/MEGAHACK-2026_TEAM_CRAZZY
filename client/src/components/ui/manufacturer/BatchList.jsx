@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   PlusSquare,
@@ -21,19 +21,82 @@ import {
   Filter
 } from 'lucide-react';
 
-const batches = [
-  { id: '#BTCH-2024-001', name: 'Paracetamol', dosage: '500mg', mfg: '12 Oct 2023', exp: '12 Oct 2025', status: 'Verified', scans: 452, location: ['Berlin', 'Logistics Hub'] },
-  { id: '#BTCH-2024-002', name: 'Amoxicillin', dosage: '250mg', mfg: '15 Nov 2023', exp: '15 Nov 2024', status: 'Verified', scans: 218, location: ['Paris', 'Distribution'] },
-  { id: '#BTCH-2024-003', name: 'Metformin', dosage: '500mg', mfg: '02 Dec 2023', exp: '02 Dec 2026', status: 'Flagged', scans: 89, location: ['London Port', '(Audit)'] },
-  { id: '#BTCH-2024-005', name: 'Lisinopril', dosage: '10mg', mfg: '15 Feb 2021', exp: '10 Jan 2024', status: 'Expired', scans: 312, location: ['Munich', 'Warehouse'] },
-  { id: '#BTCH-2024-006', name: 'Atorvastatin', dosage: '20mg', mfg: '20 Mar 2024', exp: '20 Mar 2024', status: 'Verified', scans: 45, location: ['Madrid', 'Logistics'] },
-  { id: '#BTCH-2024-007', name: 'Omeprazole', dosage: '20mg', mfg: '05 Apr 2024', exp: '05 Apr 2027', status: 'Verified', scans: 23, location: ['Vienna', 'HQ'] },
-  { id: '#BTCH-2024-008', name: 'Salbutamol', dosage: 'Inhaler', mfg: '12 Apr 2024', exp: '12 Apr 2026', status: 'Verified', scans: 12, location: ['Amsterdam', 'Airport'] },
-];
-
 export default function BatchList() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('batchList');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [batchesData, setBatchesData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    const loadBatches = async () => {
+      setIsLoading(true);
+      setLoadError('');
+      try {
+        const response = await fetch('/api/drugs');
+        const data = await response.json();
+
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.message || 'Failed to load batches');
+        }
+
+        setBatchesData(Array.isArray(data.batches) ? data.batches : []);
+      } catch (err) {
+        setLoadError(err.message || 'Unable to load batch list');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadBatches();
+  }, []);
+
+  const formatDate = (isoOrDate) => {
+    if (!isoOrDate) return 'N/A';
+    const d = new Date(isoOrDate);
+    if (Number.isNaN(d.getTime())) return String(isoOrDate);
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const tableRows = useMemo(() => {
+    return batchesData.map((b) => {
+      const exp = new Date(b.expDate);
+      const isExpired = !Number.isNaN(exp.getTime()) && exp < new Date();
+      const status = isExpired ? 'Expired' : (b.txHash ? 'Verified' : 'Flagged');
+      return {
+        id: b.batchId,
+        name: b.productName,
+        dosage: b.category || 'N/A',
+        mfg: formatDate(b.mfgDate),
+        exp: formatDate(b.expDate),
+        status,
+        scans: 0,
+        location: [b.plantCode || 'Unknown Plant', b.manufacturerId || 'Unknown Manufacturer'],
+      };
+    });
+  }, [batchesData]);
+
+  const filteredRows = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return tableRows;
+    return tableRows.filter((r) =>
+      r.id.toLowerCase().includes(q) ||
+      r.name.toLowerCase().includes(q)
+    );
+  }, [searchTerm, tableRows]);
+
+  const stats = useMemo(() => {
+    const total = tableRows.length;
+    const verified = tableRows.filter((b) => b.status === 'Verified').length;
+    const flagged = tableRows.filter((b) => b.status === 'Flagged').length;
+    const expired = tableRows.filter((b) => b.status === 'Expired').length;
+    return { total, verified, flagged, expired };
+  }, [tableRows]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -53,14 +116,14 @@ export default function BatchList() {
       
       {/* SIDEBAR */}
       <aside className="w-[260px] bg-[#1e293b] flex flex-col text-slate-300 flex-shrink-0">
-        <div className="flex items-center gap-3 px-6 py-8">
+        <Link to="/" className="w-full bg-transparent border-0 flex items-center gap-3 px-6 py-8 hover:opacity-90 transition-opacity text-left cursor-pointer">
           <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center text-white font-bold text-xl">
             P
           </div>
           <span className="text-white font-bold tracking-wide text-lg">
             PHARMACHAIN
           </span>
-        </div>
+        </Link>
 
         <nav className="flex-1 px-4 space-y-2">
           <button onClick={() => navigate('/manufacturer')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50' : 'hover:bg-slate-800 hover:text-white'}`}>
@@ -75,22 +138,31 @@ export default function BatchList() {
             <Layers size={20} />
             Batch List
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+          onClick={() => navigate('/manufacturer/batch-detail')}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
             <FileText size={20} />
             Batch Detail
           </button>
-          <button className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+          onClick={() => navigate('/manufacturer/anomaly-alerts')}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
             <div className="flex items-center gap-3">
               <AlertTriangle size={20} />
               Anomaly Alerts
             </div>
             <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          <button 
+          onClick={() => navigate('/manufacturer/trigger-recall')}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
             <Zap size={20} />
             Trigger Recall
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          <button
+            onClick={() => navigate('/manufacturer/compliance-export')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+          >
             <Download size={20} />
             Compliance Export
           </button>
@@ -161,14 +233,14 @@ export default function BatchList() {
 
           <div className="flex items-center text-sm text-slate-600 gap-1.5 mb-8 font-medium">
             <Clock size={14} className="text-slate-400" />
-            <span>1,247 total batches &bull; Last synced 2 min ago</span>
+            <span>{stats.total} total batches &bull; Synced from blockchain registry</span>
           </div>
 
           {/* KPI Cards */}
           <div className="grid grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-5 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col justify-center">
                <h4 className="text-sm font-semibold text-slate-700 mb-2 mt-1">Total Batches</h4>
-               <div className="text-[32px] font-extrabold text-slate-800 mb-2 leading-none">1,247</div>
+               <div className="text-[32px] font-extrabold text-slate-800 mb-2 leading-none">{stats.total}</div>
                <div className="flex items-center text-xs font-semibold text-emerald-600">
                  <ArrowUp size={14} strokeWidth={3} className="mr-1" />
                  12% from last month
@@ -177,7 +249,7 @@ export default function BatchList() {
             
             <div className="bg-white p-5 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col justify-center">
                <h4 className="text-sm font-semibold text-slate-700 mb-2 mt-1">Verified</h4>
-               <div className="text-[32px] font-extrabold text-slate-800 mb-2 leading-none">1,219</div>
+               <div className="text-[32px] font-extrabold text-slate-800 mb-2 leading-none">{stats.verified}</div>
                <div className="text-xs font-semibold text-slate-500">
                  97.7% Compliance rate
                </div>
@@ -185,7 +257,7 @@ export default function BatchList() {
 
             <div className="bg-white p-5 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col justify-center">
                <h4 className="text-sm font-semibold text-slate-700 mb-2 mt-1">Flagged</h4>
-               <div className="text-[32px] font-extrabold text-rose-600 mb-2 leading-none">7</div>
+               <div className="text-[32px] font-extrabold text-rose-600 mb-2 leading-none">{stats.flagged}</div>
                <div className="text-xs font-semibold text-rose-700">
                  Requires immediate attention
                </div>
@@ -193,7 +265,7 @@ export default function BatchList() {
 
             <div className="bg-white p-5 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col justify-center">
                <h4 className="text-sm font-semibold text-slate-700 mb-2 mt-1">Expired</h4>
-               <div className="text-[32px] font-extrabold text-orange-500 mb-2 leading-none">3</div>
+               <div className="text-[32px] font-extrabold text-orange-500 mb-2 leading-none">{stats.expired}</div>
                <div className="text-xs font-semibold text-orange-600">
                  Removal pending
                </div>
@@ -208,7 +280,13 @@ export default function BatchList() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type="text" placeholder="Search drug or ID..." className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-[240px] shadow-sm transition-all text-slate-700 placeholder:text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search drug or ID..."
+                    className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-[240px] shadow-sm transition-all text-slate-700 placeholder:text-slate-400"
+                  />
                 </div>
                 <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-colors">
                   All Statuses
@@ -235,9 +313,9 @@ export default function BatchList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {batches.map((batch, i) => (
+                  {!isLoading && !loadError && filteredRows.map((batch, i) => (
                     <tr key={i} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-6 py-4 font-semibold text-blue-600">{batch.id}</td>
+                      <td className="px-6 py-4 font-semibold text-blue-600">#{batch.id}</td>
                       <td className="px-6 py-4">
                         <div className="font-bold text-slate-800 mb-0.5">{batch.name}</div>
                         <div className="text-xs font-semibold text-slate-500">{batch.dosage}</div>
@@ -252,7 +330,10 @@ export default function BatchList() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors">
+                          <button
+                            onClick={() => navigate(`/manufacturer/batch-detail/${encodeURIComponent(batch.id)}`)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors"
+                          >
                             View
                             <span className="flex flex-col items-center justify-center gap-[2px]">
                                <QrCode size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
@@ -262,13 +343,28 @@ export default function BatchList() {
                       </td>
                     </tr>
                   ))}
+                  {isLoading && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-slate-500 font-medium">Loading registered batches...</td>
+                    </tr>
+                  )}
+                  {!isLoading && loadError && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-rose-600 font-medium">{loadError}</td>
+                    </tr>
+                  )}
+                  {!isLoading && !loadError && filteredRows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-slate-500 font-medium">No batches found.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-sm bg-slate-50/30">
               <div className="text-slate-500 font-medium">
-                Showing <span className="font-bold text-slate-800">1</span> to <span className="font-bold text-slate-800">8</span> of <span className="font-bold text-slate-800">1,247</span> results
+                Showing <span className="font-bold text-slate-800">{filteredRows.length > 0 ? 1 : 0}</span> to <span className="font-bold text-slate-800">{filteredRows.length}</span> of <span className="font-bold text-slate-800">{stats.total}</span> results
               </div>
               <div className="flex items-center gap-1.5">
                 <button className="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 font-semibold hover:bg-slate-100 transition-colors shadow-sm bg-white">Previous</button>
