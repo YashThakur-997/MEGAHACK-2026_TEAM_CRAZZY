@@ -135,13 +135,10 @@ export default function AnomalyAlerts() {
           </button>
           <button
             onClick={() => navigate('/manufacturer/anomaly-alerts')}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50"
           >
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{activeAlertsCount}</span>
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </button>
           <button
             onClick={() => navigate('/manufacturer/trigger-recall')}
@@ -182,7 +179,7 @@ export default function AnomalyAlerts() {
         <div className="bg-[#1e2330] px-8 py-6 flex justify-between items-center text-white border-b border-slate-700 shadow-sm">
           <div>
             <h1 className="text-2xl font-bold tracking-wide">Anomaly Alerts</h1>
-            <p className="text-slate-400 text-sm mt-1">PharmaChain Supply Chain Integrity Monitor</p>
+            <p className="text-slate-400 text-sm mt-1">PramanChain Supply Chain Integrity Monitor</p>
           </div>
           <div className="flex items-center gap-4 text-sm font-medium">
             <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-700 px-4 py-2 rounded-full">
@@ -297,7 +294,7 @@ export default function AnomalyAlerts() {
 
           <div className="mt-8 text-center pb-4">
             <p className="text-xs text-slate-500">
-              © 2023 PharmaChain Systems. All supply chain events are cryptographically secured on the ledger.
+              © 2023 PramanChain Systems. All supply chain events are cryptographically secured on the ledger.
             </p>
           </div>
         </div>

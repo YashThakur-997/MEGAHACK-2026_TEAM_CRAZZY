@@ -160,15 +160,10 @@ export default function BatchDetail() {
           </Link>
           <Link
             to="/manufacturer/anomaly-alerts"
-            className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              3
-            </span>
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </Link>
           <Link
             to="/manufacturer/trigger-recall"
@@ -218,10 +213,6 @@ export default function BatchDetail() {
         <header className="flex items-center justify-between px-8 py-6 bg-slate-50">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-800">Batch Detail</h1>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold border border-emerald-100">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              Live on Polygon
-            </div>
           </div>
           
 
@@ -386,7 +377,7 @@ export default function BatchDetail() {
           
           {/* Footer */}
           <div className="text-center pt-8 pb-4">
-            <p className="text-slate-400 text-xs">© 2024 PharmaChain Ledger Systems - Secured by Distributed Consensus</p>
+            <p className="text-slate-400 text-xs">© 2024 PramanChain Ledger Systems - Secured by Distributed Consensus</p>
           </div>
 
         </div>

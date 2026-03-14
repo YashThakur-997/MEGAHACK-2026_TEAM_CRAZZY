@@ -16,8 +16,6 @@ import {
   QrCode,
   Clock,
   ArrowUp,
-  FileSpreadsheet,
-  FileIcon,
   Filter
 } from 'lucide-react';
 
@@ -121,7 +119,7 @@ export default function BatchList() {
             P
           </div>
           <span className="text-white font-bold tracking-wide text-lg">
-            PHARMACHAIN
+            PRAMANCHAIN
           </span>
         </Link>
 
@@ -146,12 +144,9 @@ export default function BatchList() {
           </button>
           <button 
           onClick={() => navigate('/manufacturer/anomaly-alerts')}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </button>
           <button 
           onClick={() => navigate('/manufacturer/trigger-recall')}
@@ -189,29 +184,8 @@ export default function BatchList() {
         <header className="flex items-center justify-between px-8 py-5 bg-white border-b border-slate-100 sticky top-0 z-20">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-slate-800">Dashboard Overview</h1>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/50 text-emerald-600 text-[11px] font-bold tracking-wide border border-emerald-100 uppercase">
-               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-               Live on Polygon
-            </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg px-3 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_8px_center] pr-8 cursor-pointer">
-              <option>All Batches</option>
-            </select>
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg px-3 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_8px_center] pr-8 cursor-pointer">
-              <option>2024-25</option>
-            </select>
-            
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileSpreadsheet size={16} className="text-emerald-600" />
-              CSV
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileIcon size={16} className="text-rose-500" />
-              PDF
-            </button>
-          </div>
         </header>
 
         <div className="px-8 py-8 w-[1050px]">

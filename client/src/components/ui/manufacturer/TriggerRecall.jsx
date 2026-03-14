@@ -237,12 +237,9 @@ export default function TriggerRecall() {
             <FileText size={20} />
             Batch Detail
           </button>
-          <button onClick={() => navigate('/manufacturer/anomaly-alerts')} className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{planCandidates.length}</span>
+          <button onClick={() => navigate('/manufacturer/anomaly-alerts')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </button>
           <button onClick={() => navigate('/manufacturer/trigger-recall')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50">
             <Zap size={20} />
@@ -547,7 +544,7 @@ export default function TriggerRecall() {
           </div>
 
           <div className="text-center pt-8 text-slate-400 text-xs">
-            © 2026 PharmaChain Technologies. Recall events are versioned and auditable across ledger nodes.
+            © 2026 PramanChain Technologies. Recall events are versioned and auditable across ledger nodes.
           </div>
         </div>
       </main>
