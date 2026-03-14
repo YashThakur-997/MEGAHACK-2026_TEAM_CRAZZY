@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   LineChart,
@@ -37,24 +37,131 @@ import {
   Building2
 } from 'lucide-react';
 
-// --- Mock Data ---
-
-const chartData = [
-  { name: 'Jan', registrations: 45, scans: 120 },
-  { name: 'Feb', registrations: 50, scans: 190 },
-  { name: 'Mar', registrations: 48, scans: 150 },
-  { name: 'Apr', registrations: 60, scans: 280 },
-  { name: 'May', registrations: 55, scans: 240 },
-  { name: 'Jun', registrations: 65, scans: 310 },
-];
-
-const pieData = [
-  { name: 'In Transit', value: 640, color: '#10b981' },
-  { name: 'Warehouse', value: 420, color: '#3b82f6' },
-  { name: 'Flagged', value: 187, color: '#f97316' },
-];
-
 function DashboardContent() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [metrics, setMetrics] = useState({
+    totalBatches: 0,
+    verifiedBatches: 0,
+    activeAlerts: 0,
+    totalScans: 0,
+    chartData: [],
+    pieData: [],
+  });
+
+  const monthBuckets = useMemo(() => {
+    const buckets = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      buckets.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        name: d.toLocaleString('en-US', { month: 'short' }),
+      });
+    }
+    return buckets;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [batchesRes, anomaliesRes] = await Promise.all([
+          fetch('/api/drugs'),
+          fetch('/api/drugs/anomalies'),
+        ]);
+
+        const batchesJson = await batchesRes.json();
+        const anomaliesJson = await anomaliesRes.json();
+
+        if (!batchesRes.ok || !batchesJson?.ok) {
+          throw new Error(batchesJson?.message || 'Unable to load batches');
+        }
+        if (!anomaliesRes.ok || !anomaliesJson?.ok) {
+          throw new Error(anomaliesJson?.message || 'Unable to load anomaly alerts');
+        }
+
+        const batches = Array.isArray(batchesJson.batches) ? batchesJson.batches : [];
+        const alerts = Array.isArray(anomaliesJson.alerts) ? anomaliesJson.alerts : [];
+
+        const flaggedBatchIds = new Set(alerts.map((a) => a.batchId).filter(Boolean));
+        const totalBatches = batches.length;
+        const activeAlerts = alerts.length;
+        const verifiedBatches = Math.max(totalBatches - flaggedBatchIds.size, 0);
+        const totalScans = totalBatches + activeAlerts;
+
+        const registrationsByMonth = Object.fromEntries(monthBuckets.map((m) => [m.key, 0]));
+        const alertsByMonth = Object.fromEntries(monthBuckets.map((m) => [m.key, 0]));
+
+        for (const b of batches) {
+          const ts = new Date(b.createdAt || b.timestamp || Date.now());
+          const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+          if (registrationsByMonth[key] !== undefined) registrationsByMonth[key] += 1;
+        }
+
+        for (const a of alerts) {
+          const ts = new Date(a.createdAt || Date.now());
+          const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+          if (alertsByMonth[key] !== undefined) alertsByMonth[key] += 1;
+        }
+
+        const chartData = monthBuckets.map((m) => ({
+          name: m.name,
+          registrations: registrationsByMonth[m.key],
+          scans: registrationsByMonth[m.key] + alertsByMonth[m.key],
+        }));
+
+        let inTransit = 0;
+        let warehouse = 0;
+        let flagged = 0;
+        for (const b of batches) {
+          if (flaggedBatchIds.has(b.batchId)) {
+            flagged += 1;
+          } else if (!b.txHash || String(b.txHash).trim().length < 10) {
+            inTransit += 1;
+          } else {
+            warehouse += 1;
+          }
+        }
+
+        const pieData = [
+          { name: 'In Transit', value: inTransit, color: '#10b981' },
+          { name: 'Warehouse', value: warehouse, color: '#3b82f6' },
+          { name: 'Flagged', value: flagged, color: '#f97316' },
+        ];
+
+        if (!cancelled) {
+          setMetrics({
+            totalBatches,
+            verifiedBatches,
+            activeAlerts,
+            totalScans,
+            chartData,
+            pieData,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || 'Failed to load dashboard data');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [monthBuckets]);
+
+  const verificationPct = metrics.totalBatches
+    ? Math.round((metrics.verifiedBatches / metrics.totalBatches) * 100)
+    : 0;
+
   return (
     <div className="space-y-6">
       <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
@@ -76,8 +183,8 @@ function DashboardContent() {
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold text-slate-800">1,247</h3>
-            <p className="text-emerald-500 text-sm font-medium mt-1">↑ 12% from last month</p>
+            <h3 className="text-3xl font-bold text-slate-800">{metrics.totalBatches.toLocaleString()}</h3>
+            <p className="text-emerald-500 text-sm font-medium mt-1">Live count from registered batches</p>
           </div>
         </div>
 
@@ -90,13 +197,13 @@ function DashboardContent() {
           </div>
           <div className="mt-4 flex items-end justify-between">
             <div>
-              <h3 className="text-3xl font-bold text-slate-800">1,219</h3>
-              <p className="text-slate-400 text-sm font-medium mt-1">98% Success Rate</p>
+              <h3 className="text-3xl font-bold text-slate-800">{metrics.verifiedBatches.toLocaleString()}</h3>
+              <p className="text-slate-400 text-sm font-medium mt-1">{verificationPct}% Success Rate</p>
             </div>
             <div className="relative w-10 h-10">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path className="text-slate-100" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className="text-emerald-500" strokeDasharray="98, 100" strokeWidth="4" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className="text-emerald-500" strokeDasharray={`${verificationPct}, 100`} strokeWidth="4" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
             </div>
           </div>
@@ -110,8 +217,8 @@ function DashboardContent() {
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold text-orange-600">3</h3>
-            <p className="text-slate-400 text-sm font-medium mt-1">Requires immediate attention</p>
+            <h3 className="text-3xl font-bold text-orange-600">{metrics.activeAlerts.toLocaleString()}</h3>
+            <p className="text-slate-400 text-sm font-medium mt-1">Live anomaly alerts</p>
           </div>
         </div>
 
@@ -123,7 +230,7 @@ function DashboardContent() {
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-bold text-slate-800">3,891</h3>
+            <h3 className="text-3xl font-bold text-slate-800">{metrics.totalScans.toLocaleString()}</h3>
             <p className="text-slate-400 text-sm font-medium mt-1 flex items-center gap-1">
               <span className="w-3 h-3 rounded-full border border-slate-300 grid place-items-center">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
@@ -151,7 +258,7 @@ function DashboardContent() {
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
+              <ComposedChart data={metrics.chartData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
@@ -174,21 +281,21 @@ function DashboardContent() {
           <div className="flex-1 flex flex-col justify-center items-center relative min-h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={0} dataKey="value" stroke="none">
-                  {pieData.map((entry, index) => (
+                <Pie data={metrics.pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={0} dataKey="value" stroke="none">
+                  {metrics.pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center font-sans pointer-events-none mt-2">
-              <span className="text-2xl font-bold text-slate-800">1.2k</span>
+              <span className="text-2xl font-bold text-slate-800">{metrics.totalBatches.toLocaleString()}</span>
               <span className="text-[10px] font-bold text-slate-400 tracking-wider">TOTAL</span>
             </div>
           </div>
 
           <div className="mt-4 space-y-3">
-            {pieData.map((item, index) => (
+            {metrics.pieData.map((item, index) => (
               <div key={index} className="flex justify-between items-center text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
@@ -200,6 +307,12 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+
+      {(loading || error) && (
+        <div className={`rounded-xl border p-4 text-sm font-medium ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-100 bg-blue-50 text-blue-700'}`}>
+          {error ? `Dashboard data error: ${error}` : 'Loading dashboard metrics...'}
+        </div>
+      )}
     </div>
   );
 }
@@ -1194,7 +1307,7 @@ function ComplianceExportContent() {
 
 export default function RegisterBatch({ initialTab = 'register' }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab] = useState(initialTab);
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg)", fontFamily: "'Inter', system-ui, sans-serif", color: "var(--text2)" }}>

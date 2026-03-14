@@ -1,7 +1,165 @@
 import { useState, useEffect } from "react";
 import jsQR from "jsqr";
 import { Link } from "react-router-dom";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
+
+const FALLBACK_QTY = 100;
+
+function toTitleCaseWords(text = "") {
+  return String(text)
+    .toLowerCase()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function formatTime(value) {
+  if (!value) return "--:--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatDateShort(value) {
+  if (!value) return "--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function daysTo(dateLike) {
+  if (!dateLike) return null;
+  const target = new Date(dateLike);
+  if (Number.isNaN(target.getTime())) return null;
+  const diff = target.getTime() - Date.now();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function getCategory(productName = "") {
+  const n = String(productName).toLowerCase();
+  if (n.includes("cillin") || n.includes("mycin")) return "Antibiotic";
+  if (n.includes("formin") || n.includes("insulin")) return "Diabetes";
+  if (n.includes("statin") || n.includes("dipine")) return "Cardiac";
+  if (n.includes("cetirizine")) return "Antihistamine";
+  if (n.includes("paracetamol") || n.includes("acetaminophen")) return "Analgesic";
+  return "General";
+}
+
+function deriveDistributorData(batches = [], anomalyAlerts = []) {
+  const alertsByBatchId = new Map();
+  for (const alert of anomalyAlerts) {
+    const batchId = String(alert.batchId || "");
+    if (!batchId) continue;
+    if (!alertsByBatchId.has(batchId)) alertsByBatchId.set(batchId, []);
+    alertsByBatchId.get(batchId).push(alert);
+  }
+
+  const scans = batches.map((batch) => {
+    const batchId = String(batch.batchId || "");
+    const alertList = alertsByBatchId.get(batchId) || [];
+    const hasHigh = alertList.some((a) => a.severity === "HIGH");
+    const hasAny = alertList.length > 0;
+    const quantity = Number(batch.quantity || 0) || FALLBACK_QTY;
+    const status = hasHigh ? "alert" : hasAny ? "anomaly" : "verified";
+    const score = hasHigh ? 92 : hasAny ? 58 : 8;
+
+    return {
+      id: batchId,
+      drug: batch.productName || "Unknown Product",
+      mfr: batch.manufacturerId || "Unknown Manufacturer",
+      qty: quantity,
+      score,
+      status,
+      time: formatTime(batch.updatedAt || batch.createdAt || batch.timestamp),
+      loc: batch.plantCode || "Unknown Plant",
+      createdAt: batch.createdAt || batch.timestamp,
+      txHash: batch.txHash || "",
+      expiry: batch.expDate || "",
+    };
+  });
+
+  const inventory = batches.map((batch) => {
+    const quantity = Number(batch.quantity || 0) || FALLBACK_QTY;
+    const max = Math.max(quantity, 100);
+    const relatedAlerts = alertsByBatchId.get(String(batch.batchId || "")) || [];
+    const hasHigh = relatedAlerts.some((a) => a.severity === "HIGH");
+    const expDays = daysTo(batch.expDate);
+    const status = hasHigh ? "quarantine" : expDays !== null && expDays <= 30 ? "low" : "instock";
+
+    return {
+      drug: batch.productName || "Unknown Product",
+      cat: getCategory(batch.productName),
+      id: batch.batchId || "--",
+      mfr: batch.manufacturerId || "Unknown Manufacturer",
+      stock: quantity,
+      max,
+      expiry: batch.expDate ? new Date(batch.expDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "--",
+      loc: batch.plantCode || "Unknown Plant",
+      status,
+    };
+  });
+
+  const alerts = anomalyAlerts.map((alert) => {
+    const severity = String(alert.severity || "MEDIUM").toUpperCase();
+    const score = severity === "HIGH" ? 90 : severity === "MEDIUM" ? 60 : 30;
+    return {
+      id: alert.batchId || alert.id,
+      drug: alert.productName || "Unknown Product",
+      mfr: alert.manufacturerId || "Unknown Manufacturer",
+      qty: Number(alert.quantity || 0) || FALLBACK_QTY,
+      score,
+      type: severity === "HIGH" ? "critical" : "warning",
+      title: alert.title || toTitleCaseWords(alert.type || "Anomaly"),
+      evidence: alert.description || alert.reason || "Anomaly detected.",
+      risks: [alert.reason, alert.type && `Type: ${alert.type.replaceAll("_", " ")}`].filter(Boolean),
+    };
+  });
+
+  const pending = scans
+    .filter((s) => s.status !== "verified")
+    .slice(0, 5)
+    .map((s) => ({ id: s.id, drug: s.drug, qty: s.qty }));
+
+  const now = Date.now();
+  const hoursPerBar = 3;
+  const bars = Array.from({ length: 8 }, (_, index) => {
+    const start = now - (8 - index) * hoursPerBar * 60 * 60 * 1000;
+    const end = start + hoursPerBar * 60 * 60 * 1000;
+    const count = scans.filter((s) => {
+      const t = new Date(s.createdAt || 0).getTime();
+      return t >= start && t < end;
+    }).length;
+    return count;
+  });
+
+  const maxBar = Math.max(...bars, 1);
+  const scanBars = bars.map((v) => Math.max(10, Math.round((v / maxBar) * 100)));
+
+  return {
+    scans,
+    inventory,
+    alerts,
+    pending,
+    scanBars,
+    stats: {
+      scansToday: scans.filter((s) => {
+        const d = new Date(s.createdAt || 0);
+        const t = d.getTime();
+        if (!t) return false;
+        const today = new Date();
+        return d.toDateString() === today.toDateString();
+      }).length,
+      pendingScans: pending.length,
+      activeAlerts: alerts.length,
+      inStock: inventory.filter((i) => i.status === "instock").length,
+    },
+  };
+}
 
 function DistributorDashboard() {
   const [scanResult, setScanResult] = useState(null);
@@ -125,7 +283,7 @@ function StatusBadge({ status }) {
     quarantine: { label:"🔒 Quarantined",bg:"var(--red-bg)", color:"#DC2626", border:"1px solid var(--red-bdr)"   },
   }[status] || {};
   return (
-    <span style={{ ...m, ...inter, fontSize:11, fontWeight:500, borderRadius:99, padding:"4px 10px", whiteSpace:"nowrap" }}>
+    <span style={{ ...m, ...inter, fontSize:12, fontWeight:600, borderRadius:99, padding:"6px 12px", whiteSpace:"nowrap" }}>
       {m.label}
     </span>
   );
@@ -169,79 +327,110 @@ function useCountUp(target, duration=1000) {
 }
 
 // ─── PAGES ───────────────────────────────────────────────────────────────────
-function Dashboard({ setPage }) {
+function Dashboard({ setPage, scans = SCANS, alerts = ALERTS, stats, scanBars = CHART_BARS }) {
+  const cards = [
+    {
+      label: "Scans Today",
+      value: String(stats?.scansToday ?? scans.length),
+      sub: "Live from /api/drugs",
+      accent: "#22C55E",
+      valColor: "var(--green)",
+    },
+    {
+      label: "Pending Scans",
+      value: String(stats?.pendingScans ?? 0),
+      sub: "Awaiting review",
+      accent: "#F59E0B",
+      valColor: "var(--amber)",
+    },
+    {
+      label: "Active Alerts",
+      value: String(stats?.activeAlerts ?? alerts.length),
+      sub: "From anomaly engine",
+      accent: "#EF4444",
+      valColor: "var(--red)",
+    },
+    {
+      label: "Batches In Stock",
+      value: String(stats?.inStock ?? 0),
+      sub: "Distributor inventory",
+      accent: "#1D4ED8",
+      valColor: "var(--blue)",
+    },
+  ];
+
   return (
-    <div style={{ padding:32, display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16 }}>
-        {[
-          { label:"Scans Today",      value:"142", sub:"↑ 12% vs yesterday",    accent:"#22C55E", valColor:"var(--green)" },
-          { label:"Pending Scans",    value:"17",  sub:"3 batches awaiting",     accent:"#F59E0B", valColor:"var(--amber)" },
-          { label:"Active Alerts",    value:"5",   sub:"2 critical, 3 warnings", accent:"#EF4444", valColor:"var(--red)"   },
-          { label:"Batches In Stock", value:"389", sub:"↑ 8% this week",         accent:"#1D4ED8", valColor:"var(--blue)"  },
-        ].map(s=>(
-          <div key={s.label} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderTop:`3px solid ${s.accent}`, borderRadius:12, padding:"20px 24px", boxShadow:"var(--shadow-card)" }}>
-            <div style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:2, marginBottom:10 }}>{s.label}</div>
-            <div style={{ fontSize:40, fontWeight:800, color:s.valColor, ...inter, marginBottom:6 }}>{s.value}</div>
-            <div style={{ fontSize:12, color:"var(--text4)" }}>{s.sub}</div>
+    <div style={{ padding:40, display:"flex", flexDirection:"column", gap:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:20 }}>
+        {cards.map(s=>(
+          <div key={s.label} style={{ background:"var(--surface)", border:"1px solid var(--border)", borderTop:`3px solid ${s.accent}`, borderRadius:14, padding:"26px 28px", boxShadow:"var(--shadow-card)", minHeight:178 }}>
+            <div style={{ ...mono, fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:2, marginBottom:12 }}>{s.label}</div>
+            <div style={{ fontSize:48, fontWeight:800, color:s.valColor, ...inter, marginBottom:8, lineHeight:1 }}>{s.value}</div>
+            <div style={{ fontSize:14, color:"var(--text4)" }}>{s.sub}</div>
           </div>
         ))}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"3fr 2fr", gap:20 }}>
         <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, overflow:"hidden", boxShadow:"var(--shadow-card)" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:"1px solid var(--border)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 22px", borderBottom:"1px solid var(--border)" }}>
             <div>
-              <div style={{ fontSize:14, fontWeight:700, color:"var(--text)" }}>Recent Scan Activity</div>
-              <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginTop:2 }}>Last 24 hours · Auto-refreshing</div>
+              <div style={{ fontSize:16, fontWeight:700, color:"var(--text)" }}>Recent Scan Activity</div>
+              <div style={{ ...mono, fontSize:12, color:"var(--text3)", marginTop:2 }}>Last 24 hours · Auto-refreshing</div>
             </div>
-            <button onClick={()=>setPage("history")} style={{ ...inter, fontSize:12, color:"var(--text3)", border:"1px solid var(--border)", borderRadius:7, padding:"5px 12px", background:"none", cursor:"pointer" }}>View all →</button>
+            <button onClick={()=>setPage("history")} style={{ ...inter, fontSize:13, color:"var(--text3)", border:"1px solid var(--border)", borderRadius:8, padding:"7px 14px", background:"none", cursor:"pointer" }}>View all →</button>
           </div>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
             <thead><tr style={{ background:"#F8FAFC" }}>
               {["Batch ID","Drug","Qty","Status","Time"].map(h=>(
-                <th key={h} style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1, padding:"10px 16px", textAlign:"left", fontWeight:500 }}>{h}</th>
+                <th key={h} style={{ ...mono, fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1, padding:"12px 18px", textAlign:"left", fontWeight:500 }}>{h}</th>
               ))}
             </tr></thead>
-            <tbody>{SCANS.slice(0,6).map(s=>(
+            <tbody>{scans.slice(0,6).map(s=>(
               <tr key={s.id} style={{ borderBottom:"1px solid #F1F5F9" }}
                 onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"}
                 onMouseLeave={e=>e.currentTarget.style.background=""}>
-                <td style={{ ...mono, fontSize:11, color:"var(--text2)", padding:"13px 16px" }}>{s.id}</td>
-                <td style={{ fontSize:13, color:"var(--text)", padding:"13px 16px" }}>{s.drug}</td>
-                <td style={{ fontSize:13, color:"var(--text3)", padding:"13px 16px" }}>{s.qty}</td>
-                <td style={{ padding:"13px 16px" }}><StatusBadge status={s.status}/></td>
-                <td style={{ ...mono, fontSize:11, color:"var(--text3)", padding:"13px 16px" }}>{s.time}</td>
+                <td style={{ ...mono, fontSize:12, color:"var(--text2)", padding:"14px 18px" }}>{s.id}</td>
+                <td style={{ fontSize:14, color:"var(--text)", padding:"14px 18px" }}>{s.drug}</td>
+                <td style={{ fontSize:14, color:"var(--text3)", padding:"14px 18px" }}>{s.qty}</td>
+                <td style={{ padding:"14px 18px" }}><StatusBadge status={s.status}/></td>
+                <td style={{ ...mono, fontSize:12, color:"var(--text3)", padding:"14px 18px" }}>{s.time}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
           <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, overflow:"hidden", boxShadow:"var(--shadow-card)" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:"1px solid var(--border)" }}>
-              <div style={{ fontSize:14, fontWeight:700, color:"var(--text)" }}>Active Alerts</div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 22px", borderBottom:"1px solid var(--border)" }}>
+              <div style={{ fontSize:16, fontWeight:700, color:"var(--text)" }}>Active Alerts</div>
               <StatusBadge status="alert"/>
             </div>
-            {ALERTS.slice(0,3).map(a=>(
-              <div key={a.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 20px", borderBottom:"1px solid #F1F5F9" }}>
+            {alerts.slice(0,3).map(a=>(
+              <div key={a.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 22px", borderBottom:"1px solid #F1F5F9" }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:a.type==="critical"?"var(--red)":"var(--amber)", boxShadow:a.type==="critical"?"0 0 6px rgba(239,68,68,0.5)":"0 0 6px rgba(245,158,11,0.5)" }}/>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.title}</div>
-                  <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginTop:2 }}>{a.id} · {a.score}/100</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.title}</div>
+                  <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginTop:2 }}>{a.id} · {a.score}/100</div>
                 </div>
                 <StatusBadge status={a.type==="critical"?"alert":"anomaly"}/>
               </div>
             ))}
+            {!alerts.length && (
+              <div style={{ padding:"14px 22px", fontSize:12, color:"var(--text4)" }}>
+                No active alerts from live data.
+              </div>
+            )}
           </div>
-          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:"20px", boxShadow:"var(--shadow-card)" }}>
-            <div style={{ fontSize:14, fontWeight:700, color:"var(--text)", marginBottom:4 }}>Scan Rate</div>
-            <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:16 }}>Batches per hour today</div>
+          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:"24px", boxShadow:"var(--shadow-card)" }}>
+            <div style={{ fontSize:16, fontWeight:700, color:"var(--text)", marginBottom:4 }}>Scan Rate</div>
+            <div style={{ ...mono, fontSize:12, color:"var(--text3)", marginBottom:16 }}>Batches per hour today</div>
             <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:56 }}>
-              {CHART_BARS.map((h,i)=>(
+              {scanBars.map((h,i)=>(
                 <div key={i} style={{ flex:1, display:"flex", alignItems:"flex-end" }}>
-                  <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:`${h}%`, background:i===CHART_BARS.length-1?"rgba(34,197,94,0.35)":"rgba(34,197,94,0.12)", borderTop:i===CHART_BARS.length-1?"2px solid var(--green)":"2px solid rgba(34,197,94,0.35)" }}/>
+                  <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:`${h}%`, background:i===scanBars.length-1?"rgba(34,197,94,0.35)":"rgba(34,197,94,0.12)", borderTop:i===scanBars.length-1?"2px solid var(--green)":"2px solid rgba(34,197,94,0.35)" }}/>
                 </div>
               ))}
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", ...mono, fontSize:10, color:"var(--text4)", marginTop:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", ...mono, fontSize:11, color:"var(--text4)", marginTop:8 }}>
               {["02:00","04:00","06:00","08:00","Now"].map(t=><span key={t}>{t}</span>)}
             </div>
           </div>
@@ -251,7 +440,7 @@ function Dashboard({ setPage }) {
   );
 }
 
-function ScanBatch() {
+function ScanBatch({ pendingScans = PENDING }) {
   const [batchId, setBatchId] = useState("");
   const [logged, setLogged] = useState(false);
   const [qrPayloadText, setQrPayloadText] = useState("");
@@ -261,6 +450,8 @@ function ScanBatch() {
   const [verification, setVerification] = useState(null);
   const [uploadedPayloadName, setUploadedPayloadName] = useState("");
   const [uploadedQrImageName, setUploadedQrImageName] = useState("");
+  const [timeline, setTimeline] = useState([]);
+  const [timelineError, setTimelineError] = useState("");
 
   const parseQrPayload = (rawText) => {
     const raw = (rawText || "").trim();
@@ -268,9 +459,25 @@ function ScanBatch() {
 
     try {
       const parsed = JSON.parse(raw);
+      const nestedBatch = parsed?.batch || {};
       return {
-        bid: String(parsed.bid || parsed.batchId || parsed.batchNumber || "").trim(),
-        h: String(parsed.h || parsed.hash || parsed.dataHash || "").trim(),
+        bid: String(
+          parsed.bid ||
+          parsed.batchId ||
+          parsed.batchNumber ||
+          nestedBatch.batchId ||
+          nestedBatch.batchNumber ||
+          nestedBatch.id ||
+          ""
+        ).trim(),
+        h: String(
+          parsed.h ||
+          parsed.hash ||
+          parsed.dataHash ||
+          nestedBatch.hash ||
+          nestedBatch.dataHash ||
+          ""
+        ).trim(),
       };
     } catch {
       // Fall through to URL/plain parsing.
@@ -339,17 +546,55 @@ function ScanBatch() {
     return decoded.data;
   };
 
+  const decodeQrWithHtml5Qrcode = async (file) => {
+    const tempId = `qr-file-reader-${Date.now()}`;
+    const mount = document.createElement("div");
+    mount.id = tempId;
+    mount.style.display = "none";
+    document.body.appendChild(mount);
+
+    const reader = new Html5Qrcode(tempId);
+    try {
+      const decodedText = await reader.scanFile(file, true);
+      return decodedText;
+    } finally {
+      try {
+        await reader.clear();
+      } catch {
+        // Ignore teardown errors for temporary scanner.
+      }
+      if (mount.parentNode) {
+        mount.parentNode.removeChild(mount);
+      }
+    }
+  };
+
   const handleQrImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      const qrText = await decodeQrFromImageFile(file);
+      let qrText = "";
+      try {
+        qrText = await decodeQrFromImageFile(file);
+      } catch {
+        // Fallback decoder handles cases where jsQR misses dense/rotated QR images.
+        qrText = await decodeQrWithHtml5Qrcode(file);
+      }
+
       setQrPayloadText(qrText);
       setUploadedQrImageName(file.name);
+      setUploadedPayloadName("");
+      const parsed = parseQrPayload(qrText);
+      if (parsed?.bid) {
+        setBatchId(parsed.bid);
+      }
       setVerificationError("");
     } catch (err) {
-      setVerificationError(err.message || "Unable to decode QR from uploaded PNG.");
+      setVerificationError(err.message || "Unable to decode QR from uploaded image.");
+    } finally {
+      // Let users re-upload the same file after a failed/successful attempt.
+      e.target.value = "";
     }
   };
 
@@ -402,6 +647,40 @@ function ScanBatch() {
     }
   };
 
+  useEffect(() => {
+    const currentBatchId = String(batchId || "").trim();
+    if (!currentBatchId) {
+      setTimeline([]);
+      setTimelineError("");
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/drugs/history/${encodeURIComponent(currentBatchId)}`);
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.message || "History fetch failed");
+        }
+        if (!cancelled) {
+          setTimeline(Array.isArray(data.timeline) ? data.timeline : []);
+          setTimelineError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setTimeline([]);
+          setTimelineError(err.message || "Unable to load batch history.");
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [batchId]);
+
   const resetVerificationInputs = () => {
     setBatchId("");
     setQrPayloadText("");
@@ -412,54 +691,78 @@ function ScanBatch() {
     setVerificationError("");
   };
 
-  const steps = [
-    { label:"Manufacturer Release",         meta:"Sun Pharma · 07 Mar 2026 · 10:20",  done:true  },
-    { label:"Regional Hub — Pune",          meta:"Scanned · 09 Mar 2026 · 14:35",     done:true  },
-    { label:"Distributor Receive — Mumbai", meta:"Scanned · 13 Mar 2026 · 09:14",     done:true  },
-    { label:"Pharmacy Dispatch",            meta:"Awaiting scan",                      done:false },
-  ];
-  const inputStyle = { background:"var(--surface)", border:"1px solid var(--border2)", borderRadius:8, padding:"9px 14px", fontSize:13, color:"var(--text)", outline:"none", width:"100%", ...inter };
+  const steps = timeline.length
+    ? timeline.map((item) => ({
+        label: item.title || item.action || "Checkpoint",
+        meta: `${item.location || "Unknown"} · ${formatDateShort(item.time)} ${formatTime(item.time)}`,
+        done: true,
+      }))
+    : [
+        { label:"Manufacturer Release", meta:"Load a batch to fetch real timeline", done:false },
+      ];
+  const inputStyle = { background:"var(--surface)", border:"1px solid var(--border2)", borderRadius:10, padding:"10px 14px", fontSize:14, color:"var(--text)", outline:"none", width:"100%", ...inter };
   const focusIn = e=>{ e.target.style.borderColor="var(--green)"; e.target.style.boxShadow="0 0 0 3px rgba(34,197,94,0.15)"; };
   const focusOut = e=>{ e.target.style.borderColor="var(--border2)"; e.target.style.boxShadow="none"; };
   return (
-    <div style={{ padding:32 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+    <div style={{ padding:"26px 30px 34px", display:"flex", flexDirection:"column", gap:18 }}>
+      <div style={{ background:"linear-gradient(135deg, #E6F9F0 0%, #F1F7FF 100%)", border:"1px solid #D1FAE5", borderRadius:14, padding:"18px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+        <div>
+          <div style={{ fontSize:18, fontWeight:700, color:"#0F172A", marginBottom:4 }}>Batch Verification Workspace</div>
+          <div style={{ fontSize:13, color:"#475569" }}>Scan QR payload, verify blockchain integrity, and log the checkpoint in one flow.</div>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end" }}>
+          <span style={{ ...mono, fontSize:10, letterSpacing:1.2, textTransform:"uppercase", color:"#0F766E", background:"#CCFBF1", border:"1px solid #99F6E4", borderRadius:999, padding:"5px 10px" }}>Step 1: Scan</span>
+          <span style={{ ...mono, fontSize:10, letterSpacing:1.2, textTransform:"uppercase", color:"#1D4ED8", background:"#DBEAFE", border:"1px solid #BFDBFE", borderRadius:999, padding:"5px 10px" }}>Step 2: Verify</span>
+          <span style={{ ...mono, fontSize:10, letterSpacing:1.2, textTransform:"uppercase", color:"#15803D", background:"#DCFCE7", border:"1px solid #BBF7D0", borderRadius:999, padding:"5px 10px" }}>Step 3: Log</span>
+        </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1.2fr 0.8fr", gap:24, alignItems:"start" }}>
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, boxShadow:"var(--shadow-card)" }}>
-            <div onClick={()=>setBatchId("BT-0990-MH")} style={{ border:"2px dashed var(--border2)", borderRadius:10, padding:40, textAlign:"center", cursor:"pointer", marginBottom:20, transition:"all 0.15s" }}
+          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:14, padding:24, boxShadow:"0 16px 30px rgba(15,23,42,0.08)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:800, color:"#0F172A", marginBottom:4 }}>Scan Or Paste Batch Payload</div>
+                <div style={{ ...mono, fontSize:11, color:"#64748B" }}>Supports JSON payload, URL, and QR image upload.</div>
+              </div>
+              <StatusBadge status="scanning" />
+            </div>
+
+            <div onClick={()=>setBatchId("BT-0990-MH")} style={{ border:"2px dashed #CBD5E1", borderRadius:12, padding:"34px 28px", textAlign:"center", cursor:"pointer", marginBottom:20, transition:"all 0.15s", background:"#F8FAFC" }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--green)"; e.currentTarget.style.background="var(--green-bg)";}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border2)"; e.currentTarget.style.background="";}}>
               <svg style={{ width:48, height:48, margin:"0 auto 12px", color:"var(--text3)" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><line x1="16" y1="16" x2="21" y2="21"/><line x1="16" y1="21" x2="21" y2="16"/></svg>
-              <div style={{ fontSize:13, color:"var(--text2)", marginBottom:4 }}>Tap to scan QR / Barcode</div>
-              <div style={{ ...mono, fontSize:11, color:"var(--text3)" }}>or drag & drop · supports all 2D formats</div>
+              <div style={{ fontSize:15, fontWeight:700, color:"#0F172A", marginBottom:4 }}>Tap to start from a sample scan</div>
+              <div style={{ ...mono, fontSize:11, color:"var(--text3)" }}>You can also paste payload below or upload files.</div>
             </div>
 
-            <div style={{ marginBottom:16, border:"1px solid var(--border)", borderRadius:10, padding:14, background:"#F8FAFC" }}>
-              <div style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1.5, marginBottom:8 }}>QR Payload (Paste or Upload)</div>
+            <div style={{ marginBottom:16, border:"1px solid var(--border)", borderRadius:12, padding:14, background:"#F8FAFC" }}>
+              <div style={{ ...mono, fontSize:11, color:"#475569", textTransform:"uppercase", letterSpacing:1.5, marginBottom:8 }}>QR Payload (Paste or Upload)</div>
               <textarea
                 value={qrPayloadText}
                 onChange={(e)=>setQrPayloadText(e.target.value)}
                 placeholder='Paste scanned QR payload JSON or URL (example: {"bid":"BT-0984-MH","h":"0x..."})'
-                style={{ ...inputStyle, minHeight:92, resize:"vertical", marginBottom:10 }}
+                style={{ ...inputStyle, minHeight:110, resize:"vertical", marginBottom:10 }}
                 onFocus={focusIn}
                 onBlur={focusOut}
               />
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                <label style={{ ...inter, fontSize:12, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
+                <label style={{ ...inter, fontSize:13, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)", fontWeight:600 }}>
                   Upload Payload File
                   <input type="file" accept=".txt,.json" onChange={handlePayloadFileUpload} style={{ display:"none" }} />
                 </label>
-                <label style={{ ...inter, fontSize:12, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)" }}>
+                <label style={{ ...inter, fontSize:13, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)", fontWeight:600 }}>
                   Upload QR PNG
-                  <input type="file" accept="image/png" onChange={handleQrImageUpload} style={{ display:"none" }} />
+                  <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" onChange={handleQrImageUpload} style={{ display:"none" }} />
                 </label>
-                <span style={{ ...mono, fontSize:10, color:"var(--text4)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                <div style={{ ...mono, fontSize:10, color:"var(--text4)", background:"#fff", border:"1px solid var(--border)", borderRadius:6, padding:"5px 8px", maxWidth:250, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {uploadedQrImageName || uploadedPayloadName || "No file selected"}
-                </span>
+                </div>
               </div>
             </div>
 
-            <div style={{ textAlign:"center", ...mono, fontSize:11, color:"var(--text4)", marginBottom:16 }}>— or enter manually —</div>
+            <div style={{ fontSize:16, fontWeight:800, color:"#0F172A", marginBottom:8 }}>Manual Entry (Optional)</div>
+            <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:14 }}>Provide values only when payload is incomplete.</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               {[
                 { label:"Batch ID", val:batchId, set:setBatchId, ph:"BT-0985-MH" },
@@ -471,34 +774,34 @@ function ScanBatch() {
                 { label:"Expiry Date", val:"", set:()=>{}, ph:"", type:"date" },
               ].map(f=>(
                 <div key={f.label}>
-                  <label style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1.5, display:"block", marginBottom:6 }}>{f.label}</label>
+                  <label style={{ ...mono, fontSize:11, color:"#475569", textTransform:"uppercase", letterSpacing:1.3, display:"block", marginBottom:6 }}>{f.label}</label>
                   <input value={f.val} onChange={e=>f.set(e.target.value)} placeholder={f.ph} type={f.type||"text"} style={inputStyle} onFocus={focusIn} onBlur={focusOut}/>
                 </div>
               ))}
             </div>
             <div style={{ marginTop:14 }}>
-              <label style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1.5, display:"block", marginBottom:6 }}>Checkpoint Location</label>
+              <label style={{ ...mono, fontSize:11, color:"#475569", textTransform:"uppercase", letterSpacing:1.3, display:"block", marginBottom:6 }}>Checkpoint Location</label>
               <input placeholder="Mumbai Central Warehouse — Bay 4" style={inputStyle} onFocus={focusIn} onBlur={focusOut}/>
             </div>
 
             {verificationError && (
-              <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, background:"var(--red-bg)", color:"#991B1B", border:"1px solid var(--red-bdr)", fontSize:12 }}>
+              <div style={{ marginTop:14, padding:"10px 12px", borderRadius:10, background:"var(--red-bg)", color:"#991B1B", border:"1px solid var(--red-bdr)", fontSize:12, fontWeight:500 }}>
                 {verificationError}
               </div>
             )}
 
             {verification && (
-              <div style={{ marginTop:14, padding:"12px", borderRadius:10, border:`1px solid ${verification.authentic ? "var(--green-bdr)" : "var(--red-bdr)"}`, background:verification.authentic ? "var(--green-bg)" : "var(--red-bg)" }}>
-                <div style={{ fontSize:13, fontWeight:700, color:verification.authentic ? "#166534" : "#991B1B", marginBottom:8 }}>
+              <div style={{ marginTop:14, padding:"14px", borderRadius:12, border:`1px solid ${verification.authentic ? "var(--green-bdr)" : "var(--red-bdr)"}`, background:verification.authentic ? "var(--green-bg)" : "var(--red-bg)", boxShadow:verification.authentic?"0 8px 16px rgba(34,197,94,0.08)":"0 8px 16px rgba(239,68,68,0.08)" }}>
+                <div style={{ fontSize:14, fontWeight:700, color:verification.authentic ? "#166534" : "#991B1B", marginBottom:10 }}>
                   {verification.authentic ? "Authentic Batch Verified" : "Integrity Mismatch Detected"}
                 </div>
-                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4 }}>Batch: {verification.batchId}</div>
-                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>DB Hash: {verification.dbHash || "N/A"}</div>
-                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>On-chain Hash: {verification.onChainHash || "N/A"}</div>
-                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>Recomputed Hash: {verification.recomputedHash || "N/A"}</div>
-                <div style={{ ...mono, fontSize:10, color:"var(--text3)", wordBreak:"break-all" }}>Tx: {verification.txHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:4 }}>Batch: {verification.batchId}</div>
+                <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>DB Hash: {verification.dbHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>On-chain Hash: {verification.onChainHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>Recomputed Hash: {verification.recomputedHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:11, color:"var(--text3)", wordBreak:"break-all" }}>Tx: {verification.txHash || "N/A"}</div>
                 {!!verification.suppliedHash && (
-                  <div style={{ ...mono, fontSize:10, marginTop:8, color:verification.suppliedHashMatched ? "#166534" : "#991B1B" }}>
+                  <div style={{ ...mono, fontSize:11, marginTop:8, color:verification.suppliedHashMatched ? "#166534" : "#991B1B" }}>
                     Provided hash {verification.suppliedHashMatched ? "matches" : "does not match"} blockchain record.
                   </div>
                 )}
@@ -509,17 +812,17 @@ function ScanBatch() {
               <button
                 onClick={verifyAuthenticity}
                 disabled={isVerifying}
-                style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 0", borderRadius:8, border:"none", background:isVerifying?"#94A3B8":"var(--blue)", color:"#fff", fontSize:13, fontWeight:600, cursor:isVerifying?"not-allowed":"pointer", boxShadow:"0 2px 8px rgba(29,78,216,0.25)", ...inter }}
+                style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"11px 0", borderRadius:10, border:"none", background:isVerifying?"#94A3B8":"linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)", color:"#fff", fontSize:13, fontWeight:700, cursor:isVerifying?"not-allowed":"pointer", boxShadow:"0 6px 12px rgba(29,78,216,0.25)", ...inter }}
               >
                 {isVerifying ? "Checking Blockchain..." : "Verify Authenticity"}
               </button>
               <button onClick={()=>{setLogged(true); setTimeout(()=>setLogged(false),2000);}}
-                style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 0", borderRadius:8, border:"none", background:logged?"var(--green-dim)":"var(--green)", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 8px rgba(34,197,94,0.3)", ...inter }}>
+                style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"11px 0", borderRadius:10, border:"none", background:logged?"#16A34A":"linear-gradient(135deg, #16A34A 0%, #22C55E 100%)", color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", boxShadow:"0 6px 12px rgba(34,197,94,0.26)", ...inter }}>
                 {logged ? "✓ Logged!" : "✓ Log & Verify Batch"}
               </button>
               <button
                 onClick={resetVerificationInputs}
-                style={{ padding:"10px 16px", borderRadius:8, border:"1px solid var(--border2)", background:"var(--surface)", color:"var(--text2)", fontSize:13, fontWeight:500, cursor:"pointer", ...inter }}
+                style={{ padding:"10px 16px", borderRadius:10, border:"1px solid var(--border2)", background:"var(--surface)", color:"var(--text2)", fontSize:13, fontWeight:600, cursor:"pointer", ...inter }}
               >
                 Clear
               </button>
@@ -527,9 +830,12 @@ function ScanBatch() {
           </div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, boxShadow:"var(--shadow-card)" }}>
-            <div style={{ fontSize:14, fontWeight:700, color:"var(--text)", marginBottom:4 }}>Checkpoint Log</div>
-            <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:24 }}>BT-0984-MH · Amoxicillin 500mg</div>
+          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:14, padding:24, boxShadow:"0 16px 30px rgba(15,23,42,0.08)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:"#0F172A" }}>Checkpoint Log</div>
+              <span style={{ ...mono, fontSize:10, textTransform:"uppercase", letterSpacing:1.4, color:"var(--blue)", background:"var(--blue-bg)", border:"1px solid #BFDBFE", borderRadius:999, padding:"4px 8px" }}>Live Timeline</span>
+            </div>
+            <div style={{ ...mono, fontSize:11, color:"var(--text3)", marginBottom:24 }}>{batchId || "No batch selected"} · Tracking state</div>
             {steps.map((s,i)=>(
               <div key={i}>
                 <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
@@ -550,15 +856,24 @@ function ScanBatch() {
               <StatusBadge status="verified"/>
             </div>
           </div>
-          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:24, boxShadow:"var(--shadow-card)" }}>
-            <div style={{ fontSize:14, fontWeight:700, color:"var(--text)", marginBottom:16 }}>Pending Scans</div>
-            {PENDING.map(p=>(
+          <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:14, padding:24, boxShadow:"0 16px 30px rgba(15,23,42,0.08)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:"#0F172A" }}>Pending Scans</div>
+              <span style={{ ...mono, fontSize:10, color:"var(--amber)", background:"var(--amber-bg)", border:"1px solid #FCD34D", borderRadius:999, padding:"4px 8px" }}>{pendingScans.length}</span>
+            </div>
+            {pendingScans.map(p=>(
               <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderTop:"1px solid var(--border)" }}>
                 <span style={{ ...mono, fontSize:11, background:"#F1F5F9", border:"1px solid var(--border)", borderRadius:4, padding:"2px 8px", color:"var(--text3)" }}>{p.id}</span>
                 <span style={{ flex:1, fontSize:13, color:"var(--text)" }}>{p.drug}</span>
                 <span style={{ ...mono, fontSize:11, color:"var(--text3)" }}>{p.qty} units</span>
               </div>
             ))}
+            {!pendingScans.length && (
+              <div style={{ ...mono, fontSize:11, color:"var(--text4)", padding:"10px 0" }}>No pending scans from live data.</div>
+            )}
+            {timelineError && (
+              <div style={{ marginTop:12, fontSize:11, color:"#991B1B" }}>{timelineError}</div>
+            )}
           </div>
         </div>
       </div>
@@ -566,10 +881,10 @@ function ScanBatch() {
   );
 }
 
-function ScanHistory() {
+function ScanHistory({ scans = SCANS }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const filtered = SCANS.filter(s=>{
+  const filtered = scans.filter(s=>{
     const ms=s.id.toLowerCase().includes(search.toLowerCase())||s.drug.toLowerCase().includes(search.toLowerCase());
     const mf=statusFilter==="all"||s.status===statusFilter;
     return ms&&mf;
@@ -611,7 +926,7 @@ function ScanHistory() {
               <td style={{ fontSize:13, color:"var(--text3)", padding:"13px 16px" }}>{s.qty}</td>
               <td style={{ padding:"13px 16px" }}><span style={{ ...mono, fontSize:13, fontWeight:700, ...scoreClass(s.score) }}>{s.score}/100</span></td>
               <td style={{ padding:"13px 16px" }}><StatusBadge status={s.status}/></td>
-              <td style={{ ...mono, fontSize:11, color:"var(--text3)", padding:"13px 16px" }}>13 Mar · {s.time}</td>
+              <td style={{ ...mono, fontSize:11, color:"var(--text3)", padding:"13px 16px" }}>{formatDateShort(s.createdAt)} · {s.time}</td>
               <td style={{ fontSize:12, color:"var(--text3)", padding:"13px 16px" }}>{s.loc}</td>
             </tr>
           ))}</tbody>
@@ -621,13 +936,34 @@ function ScanHistory() {
   );
 }
 
-function AlertDetail() {
-  const [selected, setSelected] = useState(ALERTS[0]);
+function AlertDetail({ alerts = ALERTS }) {
+  const [selected, setSelected] = useState(alerts[0] || null);
+
+  useEffect(() => {
+    if (!alerts.length) {
+      setSelected(null);
+      return;
+    }
+    if (!selected || !alerts.some((a) => a.id === selected.id)) {
+      setSelected(alerts[0]);
+    }
+  }, [alerts, selected]);
+
+  if (!selected) {
+    return (
+      <div style={{ padding:32 }}>
+        <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:12, padding:20, color:"var(--text3)" }}>
+          No active alerts from live data.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding:32 }}>
       <div style={{ display:"grid", gridTemplateColumns:"2fr 3fr", gap:24 }}>
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          {ALERTS.map(a=>(
+          {alerts.map(a=>(
             <div key={a.id} onClick={()=>setSelected(a)} style={{ borderRadius:12, padding:16, display:"flex", alignItems:"flex-start", gap:14, cursor:"pointer", transition:"all 0.15s", background:selected.id===a.id?"#F8FAFC":"var(--surface)", border:selected.id===a.id?"1px solid var(--border2)":"1px solid var(--border)", borderLeft:`3px solid ${a.type==="critical"?"var(--red)":"var(--amber)"}`, boxShadow:"var(--shadow-card)" }}>
               <div style={{ width:36, height:36, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:a.type==="critical"?"var(--red-bg)":"var(--amber-bg)", color:a.type==="critical"?"var(--red)":"var(--amber)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -688,7 +1024,7 @@ function AnimatedNum({ target }) {
   return <>{val}</>;
 }
 
-function Inventory() {
+function Inventory({ inventoryRows = INVENTORY }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -701,7 +1037,7 @@ function Inventory() {
     return ()=>{ clearInterval(t1); clearInterval(t2); };
   }, []);
 
-  const filtered = INVENTORY.filter(i=>{
+  const filtered = inventoryRows.filter(i=>{
     const ms = i.drug.toLowerCase().includes(search.toLowerCase()) || i.id.toLowerCase().includes(search.toLowerCase());
     const mc = catFilter==="all" || i.cat.toLowerCase()===catFilter.toLowerCase();
     const mf = statusFilter==="all" || i.status===statusFilter;
@@ -815,11 +1151,11 @@ function Inventory() {
 
 // ─── NAV ─────────────────────────────────────────────────────────────────────
 const NAV = [
-  { id:"dashboard", label:"Dashboard",       badge:null },
-  { id:"scan",      label:"Scan Batch",      badge:null },
-  { id:"history",   label:"Scan History",    badge:null },
-  { id:"alerts",    label:"Alert Detail",    badge:null },
-  { id:"inventory", label:"Inventory Status",badge:null },
+  { id:"dashboard", label:"Dashboard",       badge:null, icon:"dashboard" },
+  { id:"scan",      label:"Scan Batch",      badge:null, icon:"scan" },
+  { id:"history",   label:"Scan History",    badge:null, icon:"history" },
+  { id:"alerts",    label:"Alert Detail",    badge:null, icon:"alerts" },
+  { id:"inventory", label:"Inventory Status",badge:null, icon:"inventory" },
 ];
 
 const PAGE_TITLES = {
@@ -836,39 +1172,169 @@ function PulsingDot({ color="#22C55E", size=6 }) {
   );
 }
 
+function NavIcon({ name, active }) {
+  const color = active ? "#22C55E" : "currentColor";
+  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } };
+
+  if (name === "dashboard") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="8" height="8" />
+        <rect x="13" y="3" width="8" height="5" />
+        <rect x="13" y="10" width="8" height="11" />
+        <rect x="3" y="13" width="8" height="8" />
+      </svg>
+    );
+  }
+
+  if (name === "scan") {
+    return (
+      <svg {...common}>
+        <path d="M4 7V4h3" />
+        <path d="M20 7V4h-3" />
+        <path d="M4 17v3h3" />
+        <path d="M20 17v3h-3" />
+        <line x1="7" y1="12" x2="17" y2="12" />
+      </svg>
+    );
+  }
+
+  if (name === "history") {
+    return (
+      <svg {...common}>
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v4h4" />
+        <path d="M12 7v6l4 2" />
+      </svg>
+    );
+  }
+
+  if (name === "alerts") {
+    return (
+      <svg {...common}>
+        <path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <path d="M3 6h18" />
+      <path d="M3 12h18" />
+      <path d="M3 18h18" />
+      <path d="M8 6v12" />
+      <path d="M16 6v12" />
+    </svg>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function PramanChainDashboard() {
   const [page, setPage] = useState("dashboard");
-  const pages = { dashboard:<Dashboard setPage={setPage}/>, scan:<ScanBatch/>, history:<ScanHistory/>, alerts:<AlertDetail/>, inventory:<Inventory/> };
+  const [batches, setBatches] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLiveData = async () => {
+      try {
+        const [batchesRes, alertsRes] = await Promise.all([
+          fetch("/api/drugs"),
+          fetch("/api/drugs/anomalies"),
+        ]);
+
+        const [batchesData, alertsData] = await Promise.all([
+          batchesRes.json(),
+          alertsRes.json(),
+        ]);
+
+        if (!batchesRes.ok || !batchesData?.ok) {
+          throw new Error(batchesData?.message || "Unable to load batches");
+        }
+        if (!alertsRes.ok || !alertsData?.ok) {
+          throw new Error(alertsData?.message || "Unable to load anomaly alerts");
+        }
+
+        if (!cancelled) {
+          setBatches(Array.isArray(batchesData.batches) ? batchesData.batches : []);
+          setAlerts(Array.isArray(alertsData.alerts) ? alertsData.alerts : []);
+          setLoadError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err.message || "Unable to load distributor live data.");
+        }
+      }
+    };
+
+    fetchLiveData();
+    const timer = setInterval(fetchLiveData, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const live = deriveDistributorData(batches, alerts);
+
+  const pages = {
+    dashboard: <Dashboard setPage={setPage} scans={live.scans.length ? live.scans : SCANS} alerts={live.alerts} stats={live.stats} scanBars={live.scanBars.length ? live.scanBars : CHART_BARS} />,
+    scan: <ScanBatch pendingScans={live.pending} />,
+    history: <ScanHistory scans={live.scans.length ? live.scans : SCANS} />,
+    alerts: <AlertDetail alerts={live.alerts} />,
+    inventory: <Inventory inventoryRows={live.inventory.length ? live.inventory : INVENTORY} />,
+  };
 
   return (
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:"var(--bg)", ...inter }}>
 
       {/* ── SIDEBAR ── */}
-      <aside style={{ width:220, flexShrink:0, background:"#162032", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <aside style={{ width:256, flexShrink:0, background:"#1e293b", display:"flex", flexDirection:"column", overflow:"hidden", color:"#cbd5e1" }}>
         {/* Logo */}
-        <div style={{ padding:"24px 16px 20px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-          <Link to="/" style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, textDecoration:"none" }}>
-            <HexLogo/>
+        <div style={{ padding:"32px 24px" }}>
+          <Link to="/" style={{ display:"flex", alignItems:"center", gap:12, textDecoration:"none" }}>
+            <div style={{ width:32, height:32, borderRadius:6, background:"#10b981", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:20, lineHeight:1 }}>
+              P
+            </div>
             <div>
-              <div style={{ color:"#fff", fontSize:15, fontWeight:700, lineHeight:1.1 }}>PramanChain</div>
-              <div style={{ ...mono, fontSize:9, color:"#94A3B8", textTransform:"uppercase", letterSpacing:2, marginTop:3 }}>Distributor Node</div>
+              <div style={{ color:"#fff", fontSize:20, fontWeight:700, letterSpacing:0.5, lineHeight:1.1 }}>PHARMACHAIN</div>
+              <div style={{ ...mono, fontSize:10, color:"#94a3b8", textTransform:"uppercase", letterSpacing:2, marginTop:4 }}>Distributor Node</div>
             </div>
           </Link>
         </div>
 
         {/* Nav */}
-        <div style={{ padding:"16px 0" }}>
-          <div style={{ ...mono, fontSize:9, color:"#94A3B8", textTransform:"uppercase", letterSpacing:2, padding:"0 16px", marginBottom:8 }}>Navigation</div>
+        <div style={{ padding:"0 16px", display:"flex", flexDirection:"column", gap:8 }}>
           {NAV.map(n=>{
             const active = page===n.id;
             return (
               <button key={n.id} onClick={()=>setPage(n.id)}
-                style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:active?"rgba(34,197,94,0.15)":"transparent", borderLeft:active?"3px solid #22C55E":"3px solid transparent", color:active?"#22C55E":"#94A3B8", fontSize:13, fontWeight:active?600:400, cursor:"pointer", border:"none", transition:"all 0.15s", textAlign:"left", ...inter }}
-                onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; }}}
-                onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#94A3B8"; }}}
+                style={{
+                  width:"100%",
+                  display:"flex",
+                  alignItems:"center",
+                  gap:12,
+                  padding:"12px 16px",
+                  background:active?"rgba(51,65,85,0.5)":"transparent",
+                  border:active?"1px solid rgba(51,65,85,0.5)":"1px solid transparent",
+                  borderRadius:10,
+                  color:active?"#34d399":"#cbd5e1",
+                  fontSize:16,
+                  fontWeight:active?500:400,
+                  cursor:"pointer",
+                  transition:"all 0.15s",
+                  textAlign:"left",
+                  ...inter,
+                }}
+                onMouseEnter={e=>{ if(!active){ e.currentTarget.style.background="#1f2937"; e.currentTarget.style.color="#ffffff"; }}}
+                onMouseLeave={e=>{ if(!active){ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#cbd5e1"; }}}
               >
-                <span style={{ width:6, height:6, borderRadius:"50%", background:"currentColor", flexShrink:0 }}/>
+                <NavIcon name={n.icon} active={active} />
                 <span style={{ flex:1 }}>{n.label}</span>
                 {n.badge&&(
                   <span style={{ ...mono, fontSize:9, fontWeight:700, background:n.badge.bg, color:n.badge.color, borderRadius:4, padding:"2px 6px" }}>{n.badge.val}</span>
@@ -879,35 +1345,35 @@ export default function PramanChainDashboard() {
         </div>
 
         {/* Wallet */}
-        <div style={{ marginTop:"auto", borderTop:"1px solid rgba(255,255,255,0.08)", padding:"16px" }}>
-          <div style={{ ...mono, fontSize:9, color:"#94A3B8", textTransform:"uppercase", letterSpacing:2, marginBottom:10 }}>Connected Wallet</div>
+        <div style={{ marginTop:"auto", borderTop:"1px solid rgba(148,163,184,0.2)", padding:"16px" }}>
+          <div style={{ ...mono, fontSize:10, color:"#94a3b8", textTransform:"uppercase", letterSpacing:2, marginBottom:10 }}>Connected Wallet</div>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-            <span style={{ color:"#fff", fontSize:13, fontWeight:500 }}>MedRx Pharma</span>
+            <span style={{ color:"#fff", fontSize:14, fontWeight:500 }}>MedRx Pharma</span>
             <PulsingDot color="#22C55E" size={6}/>
           </div>
-          <div style={{ ...mono, fontSize:10, color:"#94A3B8" }}>0xAb3c...8f1d</div>
+          <div style={{ ...mono, fontSize:11, color:"#94a3b8" }}>0xAb3c...8f1d</div>
         </div>
       </aside>
 
       {/* ── MAIN ── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
         {/* Topbar */}
-        <header style={{ background:"#fff", borderBottom:"1px solid var(--border)", height:64, padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+        <header style={{ background:"#fff", borderBottom:"1px solid var(--border)", height:76, padding:"0 28px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
           <div>
-            <div style={{ fontSize:20, fontWeight:700, color:"#0F172A", lineHeight:1 }}>{PAGE_TITLES[page]}</div>
+            <div style={{ fontSize:24, fontWeight:700, color:"#0F172A", lineHeight:1 }}>{PAGE_TITLES[page]}</div>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
               <PulsingDot color="#22C55E" size={6}/>
-              <span style={{ ...inter, fontSize:11, fontWeight:500, color:"#16A34A", background:"#F0FDF4", border:"1px solid #BBF7D0", borderRadius:99, padding:"2px 8px" }}>Live on Polygon</span>
+              <span style={{ ...inter, fontSize:12, fontWeight:500, color:"#16A34A", background:"#F0FDF4", border:"1px solid #BBF7D0", borderRadius:99, padding:"3px 10px" }}>Live on Polygon</span>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ position:"relative" }}>
               <svg style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", width:13, height:13, color:"var(--text3)" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input placeholder="Search drugs or batch..." style={{ background:"#fff", border:"1px solid #CBD5E1", borderRadius:8, height:36, width:200, padding:"0 12px 0 32px", fontSize:13, color:"#0F172A", outline:"none", ...inter }}
+              <input placeholder="Search drugs or batch..." style={{ background:"#fff", border:"1px solid #CBD5E1", borderRadius:8, height:40, width:240, padding:"0 12px 0 34px", fontSize:14, color:"#0F172A", outline:"none", ...inter }}
                 onFocus={e=>{e.target.style.borderColor="#22C55E"; e.target.style.boxShadow="0 0 0 3px rgba(34,197,94,0.15)";}}
                 onBlur={e=>{e.target.style.borderColor="#CBD5E1"; e.target.style.boxShadow="none";}}/>
             </div>
-            <button onClick={()=>setPage("scan")} style={{ background:"#22C55E", color:"#fff", border:"none", borderRadius:8, height:36, padding:"0 16px", fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 8px rgba(34,197,94,0.3)", ...inter,
+            <button onClick={()=>setPage("scan")} style={{ background:"#22C55E", color:"#fff", border:"none", borderRadius:8, height:40, padding:"0 18px", fontSize:14, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 8px rgba(34,197,94,0.3)", ...inter,
               transition:"background 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.background="#16A34A"}
               onMouseLeave={e=>e.currentTarget.style.background="#22C55E"}>
@@ -915,6 +1381,12 @@ export default function PramanChainDashboard() {
             </button>
           </div>
         </header>
+
+        {loadError && (
+          <div style={{ margin:"12px 28px 0", padding:"10px 12px", borderRadius:8, border:"1px solid var(--red-bdr)", background:"var(--red-bg)", color:"#991B1B", fontSize:12 }}>
+            Live data fallback active: {loadError}
+          </div>
+        )}
 
         <main style={{ flex:1, overflowY:"auto", background:"var(--bg)" }}>
           {pages[page]}

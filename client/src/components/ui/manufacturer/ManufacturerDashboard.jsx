@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LineChart,
@@ -32,24 +32,145 @@ import {
   FileIcon,
 } from 'lucide-react';
 
-// --- Mock Data ---
-
-const chartData = [
-  { name: 'Jan', registrations: 45, scans: 120 },
-  { name: 'Feb', registrations: 50, scans: 190 },
-  { name: 'Mar', registrations: 48, scans: 150 },
-  { name: 'Apr', registrations: 60, scans: 280 },
-  { name: 'May', registrations: 55, scans: 240 },
-  { name: 'Jun', registrations: 65, scans: 310 },
-];
-
-const pieData = [
-  { name: 'In Transit', value: 640, color: '#10b981' }, // Emerald 500
-  { name: 'Warehouse', value: 420, color: '#3b82f6' }, // Blue 500
-  { name: 'Flagged', value: 187, color: '#f97316' }, // Orange 500
-];
-
 export default function ManufacturerDashboard() {
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
+  const [stats, setStats] = useState({
+    totalBatches: 0,
+    verifiedBatches: 0,
+    activeAlerts: 0,
+    totalScans: 0,
+    chartData: [],
+    pieData: [
+      { name: 'In Transit', value: 0, color: '#10b981' },
+      { name: 'Warehouse', value: 0, color: '#3b82f6' },
+      { name: 'Flagged', value: 0, color: '#f97316' },
+    ],
+  });
+
+  useEffect(() => {
+    let disposed = false;
+
+    const loadDashboard = async () => {
+      setDashboardLoading(true);
+      setDashboardError('');
+
+      try {
+        const [batchesRes, anomaliesRes] = await Promise.all([
+          fetch('/api/drugs'),
+          fetch('/api/drugs/anomalies'),
+        ]);
+
+        const batchesJson = await batchesRes.json();
+        const anomaliesJson = await anomaliesRes.json();
+
+        if (!batchesRes.ok || !batchesJson?.ok) {
+          throw new Error(batchesJson?.message || 'Failed to load batch data');
+        }
+        if (!anomaliesRes.ok || !anomaliesJson?.ok) {
+          throw new Error(anomaliesJson?.message || 'Failed to load anomaly data');
+        }
+
+        const batches = Array.isArray(batchesJson.batches) ? batchesJson.batches : [];
+        const alerts = Array.isArray(anomaliesJson.alerts) ? anomaliesJson.alerts : [];
+        const flaggedBatchIds = new Set(alerts.map((a) => a.batchId).filter(Boolean));
+
+        const totalBatches = batches.length;
+        const activeAlerts = alerts.length;
+        const verifiedBatches = Math.max(totalBatches - flaggedBatchIds.size, 0);
+        const totalScans = totalBatches + activeAlerts;
+
+        const monthLabels = [];
+        const monthKeyToLabel = {};
+        const registrationsByMonth = {};
+        const scansByMonth = {};
+        const now = new Date();
+        for (let i = 5; i >= 0; i -= 1) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const label = d.toLocaleString('en-US', { month: 'short' });
+          monthLabels.push(key);
+          monthKeyToLabel[key] = label;
+          registrationsByMonth[key] = 0;
+          scansByMonth[key] = 0;
+        }
+
+        for (const b of batches) {
+          const ts = new Date(b.createdAt || b.timestamp || Date.now());
+          const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+          if (registrationsByMonth[key] !== undefined) {
+            registrationsByMonth[key] += 1;
+            scansByMonth[key] += 1;
+          }
+        }
+
+        for (const a of alerts) {
+          const ts = new Date(a.createdAt || Date.now());
+          const key = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+          if (scansByMonth[key] !== undefined) {
+            scansByMonth[key] += 1;
+          }
+        }
+
+        const chartData = monthLabels.map((key) => ({
+          name: monthKeyToLabel[key],
+          registrations: registrationsByMonth[key],
+          scans: scansByMonth[key],
+        }));
+
+        let inTransit = 0;
+        let warehouse = 0;
+        let flagged = 0;
+        for (const b of batches) {
+          if (flaggedBatchIds.has(b.batchId)) {
+            flagged += 1;
+          } else if (!b.txHash || String(b.txHash).trim().length < 10) {
+            inTransit += 1;
+          } else {
+            warehouse += 1;
+          }
+        }
+
+        const pieData = [
+          { name: 'In Transit', value: inTransit, color: '#10b981' },
+          { name: 'Warehouse', value: warehouse, color: '#3b82f6' },
+          { name: 'Flagged', value: flagged, color: '#f97316' },
+        ];
+
+        if (!disposed) {
+          setStats({
+            totalBatches,
+            verifiedBatches,
+            activeAlerts,
+            totalScans,
+            chartData,
+            pieData,
+          });
+        }
+      } catch (err) {
+        if (!disposed) {
+          setDashboardError(err?.message || 'Failed to load dashboard data');
+        }
+      } finally {
+        if (!disposed) {
+          setDashboardLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  const verificationPct = stats.totalBatches
+    ? Math.round((stats.verifiedBatches / stats.totalBatches) * 100)
+    : 0;
+
+  const chartData = stats.chartData;
+  const pieData = stats.pieData;
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       
@@ -108,7 +229,7 @@ export default function ManufacturerDashboard() {
               Anomaly Alerts
             </div>
             <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              3
+              {stats.activeAlerts}
             </span>
           </Link>
           <Link
@@ -213,8 +334,8 @@ export default function ManufacturerDashboard() {
                 </div>
               </div>
               <div className="mt-4">
-                <h3 className="text-3xl font-bold text-slate-800">1,247</h3>
-                <p className="text-emerald-500 text-sm font-medium mt-1">↑ 12% from last month</p>
+                <h3 className="text-3xl font-bold text-slate-800">{stats.totalBatches.toLocaleString()}</h3>
+                <p className="text-emerald-500 text-sm font-medium mt-1">Live from ledger registrations</p>
               </div>
             </div>
 
@@ -228,14 +349,14 @@ export default function ManufacturerDashboard() {
               </div>
               <div className="mt-4 flex items-end justify-between">
                 <div>
-                  <h3 className="text-3xl font-bold text-slate-800">1,219</h3>
-                  <p className="text-slate-400 text-sm font-medium mt-1">98% Success Rate</p>
+                  <h3 className="text-3xl font-bold text-slate-800">{stats.verifiedBatches.toLocaleString()}</h3>
+                  <p className="text-slate-400 text-sm font-medium mt-1">{verificationPct}% Success Rate</p>
                 </div>
                 {/* SVG Circle visual */}
                 <div className="relative w-10 h-10">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path className="text-slate-100" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path className="text-emerald-500" strokeDasharray="98, 100" strokeWidth="4" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-emerald-500" strokeDasharray={`${verificationPct}, 100`} strokeWidth="4" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                   </svg>
                 </div>
               </div>
@@ -250,8 +371,8 @@ export default function ManufacturerDashboard() {
                 </div>
               </div>
               <div className="mt-4">
-                <h3 className="text-3xl font-bold text-orange-600">3</h3>
-                <p className="text-slate-400 text-sm font-medium mt-1">Requires immediate attention</p>
+                <h3 className="text-3xl font-bold text-orange-600">{stats.activeAlerts.toLocaleString()}</h3>
+                <p className="text-slate-400 text-sm font-medium mt-1">Live anomaly detections</p>
               </div>
             </div>
 
@@ -264,7 +385,7 @@ export default function ManufacturerDashboard() {
                 </div>
               </div>
               <div className="mt-4">
-                <h3 className="text-3xl font-bold text-slate-800">3,891</h3>
+                <h3 className="text-3xl font-bold text-slate-800">{stats.totalScans.toLocaleString()}</h3>
                 <p className="text-slate-400 text-sm font-medium mt-1 flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full border border-slate-300 grid place-items-center">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
@@ -364,7 +485,7 @@ export default function ManufacturerDashboard() {
                 </ResponsiveContainer>
                 {/* Center Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center font-sans pointer-events-none mt-2">
-                  <span className="text-2xl font-bold text-slate-800">1.2k</span>
+                  <span className="text-2xl font-bold text-slate-800">{stats.totalBatches.toLocaleString()}</span>
                   <span className="text-[10px] font-bold text-slate-400 tracking-wider">TOTAL</span>
                 </div>
               </div>
@@ -384,6 +505,12 @@ export default function ManufacturerDashboard() {
             </div>
 
           </div>
+
+          {(dashboardLoading || dashboardError) && (
+            <div className={`rounded-xl border p-4 text-sm font-medium ${dashboardError ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-100 bg-blue-50 text-blue-700'}`}>
+              {dashboardError ? `Dashboard data error: ${dashboardError}` : 'Loading dashboard data...'}
+            </div>
+          )}
 
         </div>
       </main>
