@@ -91,6 +91,11 @@ const parseQrPayload = (rawText) => {
     }
   }
 
+  const looksLikeHash = /^0x[a-f0-9]{32,}$/i.test(raw);
+  if (looksLikeHash) {
+    return { bid: '', h: raw };
+  }
+
   return { bid: raw, h: '' };
 };
 
@@ -162,120 +167,122 @@ const QrScanScreen = ({ onScan, verifyError, clearError }) => {
       {/* Logo */}
       <img src="/pramanchain-logo.png" alt="PramanChain" className="w-20 h-20 rounded-xl object-contain" />
 
-      <div className="text-center">
+      <div className="text-center pd-scan-header">
         <h1 className="text-[26px] font-bold text-white tracking-tight">Verify Your Medicine</h1>
         <p className="text-sm mt-2" style={s.text4}>Scan QR code on medicine packaging</p>
       </div>
 
-      {/* QR Frame / Scanner */}
-      <div className="w-[220px] h-[220px] relative">
-        {isScanning ? (
-          <div className="w-full h-full rounded-2xl overflow-hidden border-2" style={{ borderColor: 'var(--green-dim)' }}>
-            <Scanner
-              onScan={(result) => {
-                if (result && result.length > 0) {
-                  const rawValue = result[0]?.rawValue || result[0]?.text || '';
-                  if (rawValue) {
-                    verifyRaw(rawValue);
-                  }
-                }
-              }}
-              onError={(error) => console.log(error)}
-              styles={{
-                container: { width: '100%', height: '100%', borderRadius: '14px' },
-                video: { objectFit: 'cover' }
-              }}
-              components={{
-                audio: false,
-                onOff: true,
-                torch: true,
-                zoom: false,
-                finder: false,
-              }}
-            />
+      <div className="pd-scan-layout w-full">
+        <div className="pd-scan-left">
+          {/* QR Frame / Scanner */}
+          <div className="w-55 h-55 relative">
+            {isScanning ? (
+              <div className="w-full h-full rounded-2xl overflow-hidden border-2" style={{ borderColor: 'var(--green-dim)' }}>
+                <Scanner
+                  onScan={(result) => {
+                    if (result && result.length > 0) {
+                      const rawValue = result[0]?.rawValue || result[0]?.text || '';
+                      if (rawValue) {
+                        verifyRaw(rawValue);
+                      }
+                    }
+                  }}
+                  onError={(error) => console.log(error)}
+                  styles={{
+                    container: { width: '100%', height: '100%', borderRadius: '14px' },
+                    video: { objectFit: 'cover' }
+                  }}
+                  components={{
+                    audio: false,
+                    onOff: true,
+                    torch: true,
+                    zoom: false,
+                    finder: false,
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="pd-qr-frame">
+                <div className="pd-corner-bl" />
+                <div className="pd-corner-br" />
+                <div className="pd-qr-inner">
+                  {[1,1,1,0,1,1,1, 1,0,1,1,1,0,1, 1,1,1,0,0,1,1, 0,1,0,1,0,1,0, 1,1,0,0,1,1,1, 1,0,1,1,1,0,1, 1,1,1,0,1,1,1]
+                    .map((v, i) => <span key={i} style={{ opacity: v ? 1 : 0 }} />)}
+                </div>
+                <div className="pd-scan-line" />
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="pd-qr-frame">
-            <div className="pd-corner-bl" />
-            <div className="pd-corner-br" />
-            <div className="pd-qr-inner">
-              {[1,1,1,0,1,1,1, 1,0,1,1,1,0,1, 1,1,1,0,0,1,1, 0,1,0,1,0,1,0, 1,1,0,0,1,1,1, 1,0,1,1,1,0,1, 1,1,1,0,1,1,1]
-                .map((v, i) => <span key={i} style={{ opacity: v ? 1 : 0 }} />)}
-            </div>
-            <div className="pd-scan-line" />
-          </div>
-        )}
-      </div>
 
-      {/* CTA */}
-      <button
-        onClick={() => {
-          if (isScanning) {
-            verifyRaw('', manualBatchId, manualHash);
-          } else {
-            clearError();
-            setIsScanning(true);
-          }
-        }}
-        className="pd-btn-scan"
-      >
-        <QrCode size={20} />
-        {isChecking ? 'Checking Blockchain...' : isScanning ? 'Verify Current Input' : 'Open Camera to Scan'}
-      </button>
-
-      <div className="w-full max-w-[340px] rounded-xl p-3" style={{ border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.02)' }}>
-        <div className="text-[11px] uppercase tracking-[0.16em] mb-2" style={s.text4}>Manual / PNG Verify</div>
-        <input
-          value={manualBatchId}
-          onChange={(e) => setManualBatchId(e.target.value)}
-          placeholder="Batch ID (e.g. BT-0984-MH)"
-          className="w-full rounded-lg px-3 py-2 text-sm mb-2"
-          style={{ background: '#0b1220', border: '1px solid var(--border2)', color: 'white', outline: 'none' }}
-        />
-        <input
-          value={manualHash}
-          onChange={(e) => setManualHash(e.target.value)}
-          placeholder="Expected hash (optional)"
-          className="w-full rounded-lg px-3 py-2 text-sm"
-          style={{ background: '#0b1220', border: '1px solid var(--border2)', color: 'white', outline: 'none' }}
-        />
-        <div className="flex items-center gap-2 mt-3">
-          <label className="px-3 py-2 rounded-lg text-xs font-medium cursor-pointer" style={{ border: '1px solid var(--border2)', color: 'white' }}>
-            Upload QR PNG
-            <input
-              type="file"
-              accept="image/png"
-              style={{ display: 'none' }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  clearError();
-                  setUploadedImageName(file.name);
-                  const raw = await decodeQrFromImageFile(file);
-                  await verifyRaw(raw, manualBatchId, manualHash);
-                } catch (err) {
-                  await onScan({ error: err.message || 'QR decode failed.' });
-                }
-              }}
-            />
-          </label>
+          {/* CTA */}
           <button
-            onClick={() => verifyRaw('', manualBatchId, manualHash)}
-            className="px-3 py-2 rounded-lg text-xs font-semibold"
-            style={{ background: 'var(--green)', color: 'white' }}
+            onClick={() => {
+              if (isScanning) {
+                verifyRaw('', manualBatchId, manualHash);
+              } else {
+                clearError();
+                setIsScanning(true);
+              }
+            }}
+            className="pd-btn-scan mt-10 ml-5 flex items-center justify-center gap-2"
           >
-            Verify Manual
+            <QrCode size={20} />
+            {isChecking ? 'Checking Blockchain...' : isScanning ? 'Verify Current Input' : 'Open Camera to Scan'}
           </button>
-        </div>
-        {uploadedImageName && <div className="text-[11px] mt-2" style={s.text4}>Uploaded: {uploadedImageName}</div>}
-        {verifyError && <div className="text-[12px] mt-2" style={{ color: '#fca5a5' }}>{verifyError}</div>}
-      </div>
 
-      {/* Pill badge */}
-      <div className="pd-pill-badge">
-        <PulsingDot />
-        No login or account needed
+          <div className="pd-pill-badge">
+            <PulsingDot />
+            No login or account needed
+          </div>
+        </div>
+
+        <div className="pd-scan-right">
+          <div className="w-full max-w-none rounded-xl p-6 pd-manual-panel">
+            <div className="text-[11px] uppercase tracking-[0.16em] mb-2 pd-manual-title" style={s.text4}>Batch Verification</div>
+            <input
+              value={manualBatchId}
+              onChange={(e) => setManualBatchId(e.target.value)}
+              placeholder="Batch ID (optional)"
+              className="w-full rounded-lg px-8 py-2 text-sm mb-2 pd-manual-input"
+            />
+            <input
+              value={manualHash}
+              onChange={(e) => setManualHash(e.target.value)}
+              placeholder="Expected hash (optional)"
+              className="w-full rounded-lg px-8 py-2 text-sm pd-manual-input"
+            />
+            <div className="flex items-center gap-2 mt-3 pd-manual-actions">
+              <label className="px-8 py-2 rounded-lg text-xs font-medium cursor-pointer pd-upload-btn">
+                Upload QR PNG
+                <input
+                  type="file"
+                  accept="image/png"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      clearError();
+                      setUploadedImageName(file.name);
+                      const raw = await decodeQrFromImageFile(file);
+                      await verifyRaw(raw, manualBatchId, manualHash);
+                    } catch (err) {
+                      await onScan({ error: err.message || 'QR decode failed.' });
+                    }
+                  }}
+                />
+              </label>
+              <button
+                onClick={() => verifyRaw('', manualBatchId, manualHash)}
+                className="px-8 py-2 rounded-lg text-xs font-semibold pd-manual-verify"
+              >
+                Verify Manual
+              </button>
+            </div>
+            {uploadedImageName && <div className="text-[11px] mt-2" style={s.text4}>Uploaded: {uploadedImageName}</div>}
+            {verifyError && <div className="text-[12px] mt-2" style={{ color: '#fca5a5' }}>{verifyError}</div>}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -293,7 +300,7 @@ const TrustScoreCard = ({ trustScore, isAuthentic }) => (
   <motion.div className="pd-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
     <CardLabel>Trust Score</CardLabel>
     <div className="flex items-center gap-5">
-      <div className="pd-trust-ring relative w-[90px] h-[90px] shrink-0">
+      <div className="pd-trust-ring relative w-22.5 h-22.5 shrink-0">
         <svg width="90" height="90" viewBox="0 0 100 100">
           <circle className="ring-bg" cx="50" cy="50" r="44" />
           <circle className="ring-fg" cx="50" cy="50" r="44" />
@@ -333,11 +340,17 @@ const ProductDetailsCard = ({ product }) => (
     </div>
     <div className="pd-detail-grid">
       <DetailTile label="Batch ID" value={product.batch} mono />
+      <DetailTile label="Manufacturer Licence No." value={product.manufacturerLicense} mono />
+      <DetailTile label="Manufacturer Name" value={product.manufacturerName} />
+      <DetailTile label="CDSCO Approval" value={product.cdscoApprovalNo} mono />
       <DetailTile label="Category" value={product.category} />
       <DetailTile label="Manufactured" value={product.mfg} mono />
       <DetailTile label="Expiry" value={product.expiry} mono green />
+      <DetailTile label="GST Number" value={product.gstNumber} mono />
       <DetailTile label="Storage" value={product.storage} />
       <DetailTile label="Units" value={product.units} mono green />
+      <DetailTile label="Contact" value={product.contactPerson} />
+      <DetailTile label="Phone" value={product.phone} mono />
     </div>
   </motion.div>
 );
@@ -413,17 +426,26 @@ const ReportBanner = () => (
  * ──────────────────────────────────────────────────────────────────── */
 const ProductPassportScreen = ({ onBack, verification }) => {
   const batch = verification?.batch || {};
+  const manufacturerProfile = verification?.manufacturerProfile || {};
   const isAuthentic = !!verification?.authentic;
+  const licenseRef = batch.manufacturerId || manufacturerProfile.licenseNumber || 'N/A';
+  const resolvedManufacturerName = manufacturerProfile.manufacturerName || batch.manufacturerName || 'N/A';
 
   const product = {
-    name: batch.productName || PRODUCT.name,
-    brand: batch.manufacturerId || PRODUCT.brand,
-    batch: batch.batchId || verification?.batchId || PRODUCT.batch,
-    category: batch.category || PRODUCT.category,
-    mfg: batch.mfgDate || PRODUCT.mfg,
-    expiry: batch.expDate || PRODUCT.expiry,
-    storage: batch.storageConditions || PRODUCT.storage,
-    units: String(batch.quantity || PRODUCT.units),
+    name: batch.productName || 'N/A',
+    brand: resolvedManufacturerName,
+    batch: batch.batchId || verification?.batchId || 'N/A',
+    manufacturerLicense: manufacturerProfile.licenseNumber || licenseRef,
+    manufacturerName: resolvedManufacturerName,
+    cdscoApprovalNo: manufacturerProfile.cdscoApprovalNo || 'N/A',
+    gstNumber: manufacturerProfile.gstNumber || 'N/A',
+    contactPerson: manufacturerProfile.contactPerson || 'N/A',
+    phone: manufacturerProfile.phone || 'N/A',
+    category: batch.category || 'N/A',
+    mfg: batch.mfgDate || 'N/A',
+    expiry: batch.expDate || 'N/A',
+    storage: batch.storageConditions || 'N/A',
+    units: String(batch.quantity ?? 'N/A'),
   };
 
   const proofRows = [
@@ -523,13 +545,17 @@ export default function PatientDashboard() {
     const batchId = (parsed?.bid || fallbackBatchId || '').trim();
     const suppliedHash = (parsed?.h || fallbackHash || '').trim().toLowerCase();
 
-    if (!batchId) {
-      setVerifyError('Batch ID is required. Scan a valid QR or enter batch ID manually.');
+    if (!batchId && !suppliedHash) {
+      setVerifyError('Scan a valid QR, or provide either batch ID or expected hash.');
       return;
     }
 
     try {
-      const response = await fetch(`/api/drugs/verify/${encodeURIComponent(batchId)}`);
+      const endpoint = batchId
+        ? `/api/drugs/verify/${encodeURIComponent(batchId)}`
+        : `/api/drugs/verify-by-hash/${encodeURIComponent(suppliedHash)}`;
+
+      const response = await fetch(endpoint);
       const data = await response.json();
 
       if (!response.ok || !data?.ok) {
@@ -543,7 +569,7 @@ export default function PatientDashboard() {
 
       setVerification({
         authentic: data.status === 'VERIFIED' && chainMatched && suppliedHashMatched,
-        batchId,
+        batchId: batchId || data?.batch?.batchId || '',
         batch: data.batch,
         dbHash: data.dbHash,
         onChainHash: data.onChainHash,

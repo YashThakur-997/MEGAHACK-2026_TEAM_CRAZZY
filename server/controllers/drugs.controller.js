@@ -5,6 +5,7 @@ const { getAnomalySnapshot } = require('../services/anomaly.service');
 const { buildRecallPlanCandidates, generateRecallId, latencyForSeverity } = require('../services/recall.service');
 const DrugsBatch = require("../models/drugsbatch");
 const RecallCase = require('../models/recall.case');
+const UserModel = require('../models/users');
 
 function normalizeBatchId(raw) {
   return String(raw || '').trim();
@@ -34,6 +35,128 @@ function getHashInput(batch) {
     quantity: batch.quantity,
     plantCode: batch.plantCode,
     timestamp: batch.timestamp,
+  };
+}
+
+async function resolveManufacturerProfile(licenseNo) {
+  const key = String(licenseNo || '').trim();
+  if (!key) return null;
+
+  const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const normalizeToken = (input) => String(input || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normalizedKey = normalizeToken(key);
+
+  // Primary rule:
+  // drugsbatch.manufacturerId <-> users.manufacturerDetails.drugLicenseNo
+  // Do not force role here because older records can have inconsistent casing/value.
+  let manufacturer = await UserModel.findOne({
+    'manufacturerDetails.drugLicenseNo': key,
+  }).lean();
+
+  // Exact but case-insensitive fallback.
+  if (!manufacturer) {
+    manufacturer = await UserModel.findOne({
+      'manufacturerDetails.drugLicenseNo': {
+        $regex: new RegExp(`^${escapeRegex(key)}$`, 'i'),
+      },
+    }).lean();
+  }
+
+  // Legacy typo tolerance for field name `drugLicenceNo`.
+  if (!manufacturer) {
+    manufacturer = await UserModel.findOne({
+      'manufacturerDetails.drugLicenceNo': key,
+    }).lean();
+  }
+
+  if (!manufacturer) {
+    manufacturer = await UserModel.findOne({
+      'manufacturerDetails.drugLicenceNo': {
+        $regex: new RegExp(`^${escapeRegex(key)}$`, 'i'),
+      },
+    }).lean();
+  }
+
+  // Format-tolerant fallback: ML/2022/TX-90 ~= ML-2022-TX-90
+  if (!manufacturer && normalizedKey) {
+    const candidates = await UserModel.find({ manufacturerDetails: { $exists: true } })
+      .select({
+        email: 1,
+        walletAddress: 1,
+        role: 1,
+        manufacturerDetails: 1,
+      })
+      .lean();
+
+    manufacturer = candidates.find((candidate) => {
+      const details = candidate.manufacturerDetails || {};
+      return [details.drugLicenseNo, details.drugLicenceNo]
+        .some((value) => normalizeToken(value) === normalizedKey);
+    }) || null;
+  }
+
+  const isMeaningful = (value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return false;
+    return !/^(n\/a|na|not\s*available|unknown|null|undefined|-)$/i.test(normalized);
+  };
+
+  const pickValue = (...values) => {
+    for (const value of values) {
+      const normalized = String(value || '').trim();
+      if (isMeaningful(normalized)) return normalized;
+    }
+    return 'N/A';
+  };
+
+  if (!manufacturer) {
+    return {
+      manufacturerName: 'N/A',
+      licenseNumber: key,
+      cdscoApprovalNo: 'N/A',
+      gstNumber: 'N/A',
+      contactPerson: 'N/A',
+      phone: 'N/A',
+      email: 'N/A',
+      walletAddress: 'N/A',
+    };
+  }
+
+  const details = manufacturer.manufacturerDetails || {};
+
+  return {
+    manufacturerName: pickValue(
+      details.companyName,
+      details.fullName,
+      manufacturer.email
+    ),
+    licenseNumber: pickValue(
+      details.drugLicenseNo,
+      details.drugLicenceNo,
+      key
+    ),
+    cdscoApprovalNo: pickValue(
+      details.cdscoApprovalNo,
+      details.cdscoApprovalNumber,
+      details.cdscoNo
+    ),
+    gstNumber: pickValue(
+      details.gstNumber,
+      details.gstNo
+    ),
+    contactPerson: pickValue(
+      details.fullName,
+      details.contactPerson,
+      details.ownerName,
+      manufacturer.email
+    ),
+    phone: pickValue(
+      details.phone,
+      details.mobile,
+      details.contactNumber
+    ),
+    email: pickValue(manufacturer.email),
+    walletAddress: pickValue(manufacturer.walletAddress),
   };
 }
 
@@ -95,11 +218,13 @@ exports.verifyBatchById = async (req, res) => {
     if (!batch) return res.status(404).json({ ok: false, message: "Batch not found" });
 
     const recomputed = computeBatchHash(getHashInput(batch));
-    const onChain = await getBatchOnChain(batchId);
+    const onChain = await getBatchOnChain(batch.batchId);
 
     const verified =
       recomputed.toLowerCase() === String(batch.dataHash).toLowerCase() &&
       String(onChain.dataHash).toLowerCase() === String(batch.dataHash).toLowerCase();
+
+    const manufacturerProfile = await resolveManufacturerProfile(batch.manufacturerId);
 
     return res.json({
       ok: true,
@@ -109,6 +234,45 @@ exports.verifyBatchById = async (req, res) => {
       onChainHash: onChain.dataHash,
       txHash: batch.txHash,
       batch,
+      manufacturerProfile,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// GET /api/drugs/verify-by-hash/:hash
+exports.verifyBatchByHash = async (req, res) => {
+  try {
+    const hash = String(req.params.hash || '').trim().toLowerCase();
+    if (!hash) {
+      return res.status(400).json({ ok: false, message: 'hash is required' });
+    }
+
+    const batch = await DrugsBatch.findOne({ dataHash: new RegExp(`^${hash}$`, 'i') });
+    if (!batch) {
+      return res.status(404).json({ ok: false, message: 'Batch not found for provided hash' });
+    }
+
+    const recomputed = computeBatchHash(getHashInput(batch));
+    const onChain = await getBatchOnChain(batch.batchId);
+
+    const verified =
+      recomputed.toLowerCase() === String(batch.dataHash).toLowerCase() &&
+      String(onChain.dataHash).toLowerCase() === String(batch.dataHash).toLowerCase();
+
+    const manufacturerProfile = await resolveManufacturerProfile(batch.manufacturerId);
+
+    return res.json({
+      ok: true,
+      status: verified ? 'VERIFIED' : 'TAMPERED',
+      recomputedHash: recomputed,
+      dbHash: batch.dataHash,
+      onChainHash: onChain.dataHash,
+      txHash: batch.txHash,
+      batch,
+      manufacturerProfile,
+      matchedBy: 'hash',
     });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err.message });

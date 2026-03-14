@@ -12,5 +12,6 @@ router.get('/recalls', drugsController.listRecalls);
 router.post('/recalls', drugsController.triggerRecall);
 router.patch('/recalls/:recallId/status', drugsController.updateRecallStatus);
 router.get('/verify/:batchId', drugsController.verifyBatchById);
+router.get('/verify-by-hash/:hash', drugsController.verifyBatchByHash);
 
 module.exports = router;
