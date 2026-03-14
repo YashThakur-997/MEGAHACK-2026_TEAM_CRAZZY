@@ -1,7 +1,75 @@
 import { useState, useEffect } from "react";
 import jsQR from "jsqr";
 import { Link } from "react-router-dom";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
+function DistributorDashboard() {
+  const [scanResult, setScanResult] = useState(null);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const startScanner = () => {
+    setError("");
+    const scanner = new Html5QrcodeScanner(
+      "qr-reader",
+      { fps: 10, qrbox: 250 },
+      false
+    );
+
+    scanner.render(
+      async (decodedText) => {
+        try {
+          scanner.clear();
+
+          const parsed = JSON.parse(decodedText); // QR JSON payload
+          setScanResult(parsed);
+
+          // Verify with backend using batchId
+          const batchId = parsed?.batch?.batchId || parsed?.bid;
+          if (!batchId) throw new Error("batchId not found in QR");
+
+          const res = await fetch(`/api/drugs/verify/${batchId}`);
+          const data = await res.json();
+          setVerifyResult(data);
+        } catch (e) {
+          setError("Invalid QR content: " + e.message);
+        }
+      },
+      () => {
+        // scan errors are frequent; ignore noisy logs
+      }
+    );
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Scan Batch QR</h2>
+      <button onClick={startScanner}>Start Scanner</button>
+      <div id="qr-reader" style={{ width: 320, marginTop: 16 }} />
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {scanResult && (
+        <div style={{ marginTop: 20 }}>
+          <h3>QR Decoded Batch Info</h3>
+          <pre>{JSON.stringify(scanResult, null, 2)}</pre>
+        </div>
+      )}
+
+      {verifyResult?.ok && (
+        <div style={{ marginTop: 20 }}>
+          <h3>
+            Verification Status:{" "}
+            <span style={{ color: verifyResult.status === "VERIFIED" ? "green" : "red" }}>
+              {verifyResult.status}
+            </span>
+          </h3>
+          <pre>{JSON.stringify(verifyResult, null, 2)}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const SCANS = [
   { id:"BT-0984-MH", drug:"Amoxicillin 500mg",  mfr:"Sun Pharma",  qty:240, score:4,  status:"verified", time:"09:14", loc:"Mumbai Warehouse" },
