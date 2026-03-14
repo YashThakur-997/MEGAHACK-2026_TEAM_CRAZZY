@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import jsQR from "jsqr";
+import { Link } from "react-router-dom";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
 function DistributorDashboard() {
@@ -252,6 +254,164 @@ function Dashboard({ setPage }) {
 function ScanBatch() {
   const [batchId, setBatchId] = useState("");
   const [logged, setLogged] = useState(false);
+  const [qrPayloadText, setQrPayloadText] = useState("");
+  const [manualHash, setManualHash] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  const [verification, setVerification] = useState(null);
+  const [uploadedPayloadName, setUploadedPayloadName] = useState("");
+  const [uploadedQrImageName, setUploadedQrImageName] = useState("");
+
+  const parseQrPayload = (rawText) => {
+    const raw = (rawText || "").trim();
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        bid: String(parsed.bid || parsed.batchId || parsed.batchNumber || "").trim(),
+        h: String(parsed.h || parsed.hash || parsed.dataHash || "").trim(),
+      };
+    } catch {
+      // Fall through to URL/plain parsing.
+    }
+
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const u = new URL(raw);
+        return {
+          bid: String(u.searchParams.get("bid") || u.searchParams.get("batchId") || "").trim(),
+          h: String(u.searchParams.get("h") || u.searchParams.get("hash") || "").trim(),
+        };
+      } catch {
+        // If URL parsing fails, treat as plain batch id.
+      }
+    }
+
+    return { bid: raw, h: "" };
+  };
+
+  const handlePayloadFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      setQrPayloadText(text);
+      setUploadedPayloadName(file.name);
+      setVerificationError("");
+    } catch {
+      setVerificationError("Unable to read uploaded payload file. Use .txt or .json content.");
+    }
+  };
+
+  const decodeQrFromImageFile = async (file) => {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Failed to read image file."));
+      reader.readAsDataURL(file);
+    });
+
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Invalid image."));
+      img.src = dataUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("Unable to read image data.");
+
+    ctx.drawImage(image, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const decoded = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "attemptBoth",
+    });
+
+    if (!decoded?.data) {
+      throw new Error("No QR payload detected in PNG image.");
+    }
+
+    return decoded.data;
+  };
+
+  const handleQrImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const qrText = await decodeQrFromImageFile(file);
+      setQrPayloadText(qrText);
+      setUploadedQrImageName(file.name);
+      setVerificationError("");
+    } catch (err) {
+      setVerificationError(err.message || "Unable to decode QR from uploaded PNG.");
+    }
+  };
+
+  const verifyAuthenticity = async () => {
+    setVerificationError("");
+    setVerification(null);
+
+    const parsed = parseQrPayload(qrPayloadText);
+    const resolvedBatchId = (parsed?.bid || batchId || "").trim();
+    const suppliedHash = (parsed?.h || manualHash || "").trim().toLowerCase();
+
+    if (!resolvedBatchId) {
+      setVerificationError("Provide batch ID manually or in the QR payload before verifying.");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const response = await fetch(`/api/drugs/verify/${encodeURIComponent(resolvedBatchId)}`);
+      const data = await response.json();
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || "Verification request failed.");
+      }
+
+      const dbHash = String(data.dbHash || "").toLowerCase();
+      const onChainHash = String(data.onChainHash || "").toLowerCase();
+      const chainMatched = dbHash && onChainHash && dbHash === onChainHash;
+      const suppliedHashMatched = !suppliedHash || suppliedHash === dbHash;
+      const authentic = data.status === "VERIFIED" && chainMatched && suppliedHashMatched;
+
+      setVerification({
+        authentic,
+        batchId: resolvedBatchId,
+        dbHash: data.dbHash || "",
+        onChainHash: data.onChainHash || "",
+        recomputedHash: data.recomputedHash || "",
+        txHash: data.txHash || "",
+        suppliedHash,
+        suppliedHashMatched,
+      });
+
+      if (!batchId) {
+        setBatchId(resolvedBatchId);
+      }
+    } catch (err) {
+      setVerificationError(err.message || "Verification failed.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const resetVerificationInputs = () => {
+    setBatchId("");
+    setQrPayloadText("");
+    setManualHash("");
+    setUploadedPayloadName("");
+    setUploadedQrImageName("");
+    setVerification(null);
+    setVerificationError("");
+  };
+
   const steps = [
     { label:"Manufacturer Release",         meta:"Sun Pharma · 07 Mar 2026 · 10:20",  done:true  },
     { label:"Regional Hub — Pune",          meta:"Scanned · 09 Mar 2026 · 14:35",     done:true  },
@@ -273,10 +433,37 @@ function ScanBatch() {
               <div style={{ fontSize:13, color:"var(--text2)", marginBottom:4 }}>Tap to scan QR / Barcode</div>
               <div style={{ ...mono, fontSize:11, color:"var(--text3)" }}>or drag & drop · supports all 2D formats</div>
             </div>
+
+            <div style={{ marginBottom:16, border:"1px solid var(--border)", borderRadius:10, padding:14, background:"#F8FAFC" }}>
+              <div style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1.5, marginBottom:8 }}>QR Payload (Paste or Upload)</div>
+              <textarea
+                value={qrPayloadText}
+                onChange={(e)=>setQrPayloadText(e.target.value)}
+                placeholder='Paste scanned QR payload JSON or URL (example: {"bid":"BT-0984-MH","h":"0x..."})'
+                style={{ ...inputStyle, minHeight:92, resize:"vertical", marginBottom:10 }}
+                onFocus={focusIn}
+                onBlur={focusOut}
+              />
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                <label style={{ ...inter, fontSize:12, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)" }}>
+                  Upload Payload File
+                  <input type="file" accept=".txt,.json" onChange={handlePayloadFileUpload} style={{ display:"none" }} />
+                </label>
+                <label style={{ ...inter, fontSize:12, color:"var(--text2)", display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", border:"1px solid var(--border2)", borderRadius:8, padding:"8px 10px", background:"var(--surface)" }}>
+                  Upload QR PNG
+                  <input type="file" accept="image/png" onChange={handleQrImageUpload} style={{ display:"none" }} />
+                </label>
+                <span style={{ ...mono, fontSize:10, color:"var(--text4)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {uploadedQrImageName || uploadedPayloadName || "No file selected"}
+                </span>
+              </div>
+            </div>
+
             <div style={{ textAlign:"center", ...mono, fontSize:11, color:"var(--text4)", marginBottom:16 }}>— or enter manually —</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               {[
                 { label:"Batch ID", val:batchId, set:setBatchId, ph:"BT-0985-MH" },
+                { label:"Expected Hash", val:manualHash, set:setManualHash, ph:"0x..." },
                 { label:"Drug Name", val:"", set:()=>{}, ph:"Amoxicillin 500mg" },
                 { label:"Manufacturer", val:"", set:()=>{}, ph:"Sun Pharma" },
                 { label:"Quantity (units)", val:"", set:()=>{}, ph:"240", type:"number" },
@@ -293,12 +480,49 @@ function ScanBatch() {
               <label style={{ ...mono, fontSize:10, color:"var(--text3)", textTransform:"uppercase", letterSpacing:1.5, display:"block", marginBottom:6 }}>Checkpoint Location</label>
               <input placeholder="Mumbai Central Warehouse — Bay 4" style={inputStyle} onFocus={focusIn} onBlur={focusOut}/>
             </div>
+
+            {verificationError && (
+              <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, background:"var(--red-bg)", color:"#991B1B", border:"1px solid var(--red-bdr)", fontSize:12 }}>
+                {verificationError}
+              </div>
+            )}
+
+            {verification && (
+              <div style={{ marginTop:14, padding:"12px", borderRadius:10, border:`1px solid ${verification.authentic ? "var(--green-bdr)" : "var(--red-bdr)"}`, background:verification.authentic ? "var(--green-bg)" : "var(--red-bg)" }}>
+                <div style={{ fontSize:13, fontWeight:700, color:verification.authentic ? "#166534" : "#991B1B", marginBottom:8 }}>
+                  {verification.authentic ? "Authentic Batch Verified" : "Integrity Mismatch Detected"}
+                </div>
+                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4 }}>Batch: {verification.batchId}</div>
+                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>DB Hash: {verification.dbHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>On-chain Hash: {verification.onChainHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:10, color:"var(--text3)", marginBottom:4, wordBreak:"break-all" }}>Recomputed Hash: {verification.recomputedHash || "N/A"}</div>
+                <div style={{ ...mono, fontSize:10, color:"var(--text3)", wordBreak:"break-all" }}>Tx: {verification.txHash || "N/A"}</div>
+                {!!verification.suppliedHash && (
+                  <div style={{ ...mono, fontSize:10, marginTop:8, color:verification.suppliedHashMatched ? "#166534" : "#991B1B" }}>
+                    Provided hash {verification.suppliedHashMatched ? "matches" : "does not match"} blockchain record.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display:"flex", gap:12, marginTop:20 }}>
+              <button
+                onClick={verifyAuthenticity}
+                disabled={isVerifying}
+                style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 0", borderRadius:8, border:"none", background:isVerifying?"#94A3B8":"var(--blue)", color:"#fff", fontSize:13, fontWeight:600, cursor:isVerifying?"not-allowed":"pointer", boxShadow:"0 2px 8px rgba(29,78,216,0.25)", ...inter }}
+              >
+                {isVerifying ? "Checking Blockchain..." : "Verify Authenticity"}
+              </button>
               <button onClick={()=>{setLogged(true); setTimeout(()=>setLogged(false),2000);}}
                 style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 0", borderRadius:8, border:"none", background:logged?"var(--green-dim)":"var(--green)", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 8px rgba(34,197,94,0.3)", ...inter }}>
                 {logged ? "✓ Logged!" : "✓ Log & Verify Batch"}
               </button>
-              <button style={{ padding:"10px 16px", borderRadius:8, border:"1px solid var(--border2)", background:"var(--surface)", color:"var(--text2)", fontSize:13, fontWeight:500, cursor:"pointer", ...inter }}>Clear</button>
+              <button
+                onClick={resetVerificationInputs}
+                style={{ padding:"10px 16px", borderRadius:8, border:"1px solid var(--border2)", background:"var(--surface)", color:"var(--text2)", fontSize:13, fontWeight:500, cursor:"pointer", ...inter }}
+              >
+                Clear
+              </button>
             </div>
           </div>
         </div>
@@ -592,9 +816,9 @@ function Inventory() {
 // ─── NAV ─────────────────────────────────────────────────────────────────────
 const NAV = [
   { id:"dashboard", label:"Dashboard",       badge:null },
-  { id:"scan",      label:"Scan Batch",      badge:{ val:"3", bg:"rgba(34,197,94,0.2)", color:"#22C55E" } },
+  { id:"scan",      label:"Scan Batch",      badge:null },
   { id:"history",   label:"Scan History",    badge:null },
-  { id:"alerts",    label:"Alert Detail",    badge:{ val:"5", bg:"rgba(239,68,68,0.2)",  color:"#EF4444" } },
+  { id:"alerts",    label:"Alert Detail",    badge:null },
   { id:"inventory", label:"Inventory Status",badge:null },
 ];
 
@@ -613,7 +837,7 @@ function PulsingDot({ color="#22C55E", size=6 }) {
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function PharmaSealDashboard() {
+export default function PramanChainDashboard() {
   const [page, setPage] = useState("dashboard");
   const pages = { dashboard:<Dashboard setPage={setPage}/>, scan:<ScanBatch/>, history:<ScanHistory/>, alerts:<AlertDetail/>, inventory:<Inventory/> };
 
@@ -624,13 +848,13 @@ export default function PharmaSealDashboard() {
       <aside style={{ width:220, flexShrink:0, background:"#162032", display:"flex", flexDirection:"column", overflow:"hidden" }}>
         {/* Logo */}
         <div style={{ padding:"24px 16px 20px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+          <Link to="/" style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, textDecoration:"none" }}>
             <HexLogo/>
             <div>
-              <div style={{ color:"#fff", fontSize:15, fontWeight:700, lineHeight:1.1 }}>PharmaSeal</div>
+              <div style={{ color:"#fff", fontSize:15, fontWeight:700, lineHeight:1.1 }}>PramanChain</div>
               <div style={{ ...mono, fontSize:9, color:"#94A3B8", textTransform:"uppercase", letterSpacing:2, marginTop:3 }}>Distributor Node</div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Nav */}

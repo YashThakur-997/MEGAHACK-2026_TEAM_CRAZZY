@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -1192,23 +1192,23 @@ function ComplianceExportContent() {
   );
 }
 
-export default function RegisterBatch() {
+export default function RegisterBatch({ initialTab = 'register' }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('register');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg)", fontFamily: "'Inter', system-ui, sans-serif", color: "var(--text2)" }}>
 
       {/* SIDEBAR */}
       <aside className="w-64 flex flex-col" style={{ background: "var(--sidebar)", color: "var(--side-mute)" }}>
-        <div className="flex items-center gap-3 px-6 py-8" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <Link to="/" className="w-full bg-transparent border-0 flex items-center gap-3 px-6 py-8 hover:opacity-90 transition-opacity text-left cursor-pointer" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-xl" style={{ background: "var(--green)" }}>
             P
           </div>
           <span className="font-bold tracking-wide text-lg" style={{ color: "var(--side-text)" }}>
             PHARMACHAIN
           </span>
-        </div>
+        </Link>
 
         <nav className="flex-1 px-4 space-y-2">
           <button
@@ -1243,7 +1243,7 @@ export default function RegisterBatch() {
             Batch List
           </button>
           <button
-            onClick={() => setActiveTab('batchDetail')}
+            onClick={() => navigate('/manufacturer/batch-detail')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'batchDetail'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
@@ -1253,7 +1253,7 @@ export default function RegisterBatch() {
             Batch Detail
           </button>
           <button
-            onClick={() => setActiveTab('anomalyAlerts')}
+            onClick={() => navigate('/manufacturer/anomaly-alerts')}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'anomalyAlerts'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
@@ -1266,7 +1266,7 @@ export default function RegisterBatch() {
             <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
           </button>
           <button
-            onClick={() => setActiveTab('triggerRecall')}
+            onClick={() => navigate('/manufacturer/trigger-recall')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'triggerRecall'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
@@ -1276,7 +1276,7 @@ export default function RegisterBatch() {
             Trigger Recall
           </button>
           <button
-            onClick={() => setActiveTab('complianceExport')}
+            onClick={() => navigate('/manufacturer/compliance-export')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'complianceExport'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'

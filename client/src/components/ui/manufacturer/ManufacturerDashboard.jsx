@@ -60,14 +60,14 @@ export default function ManufacturerDashboard() {
       */}
       <aside className="w-64 bg-[#1e293b] flex flex-col text-slate-300">
         {/* Logo Area */}
-        <div className="flex items-center gap-3 px-6 py-8">
+        <Link to="/" className="flex items-center gap-3 px-6 py-8 hover:opacity-90 transition-opacity">
           <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center text-white font-bold text-xl">
             P
           </div>
           <span className="text-white font-bold tracking-wide text-lg">
             PHARMACHAIN
           </span>
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 px-4 space-y-2">
@@ -92,15 +92,15 @@ export default function ManufacturerDashboard() {
             <Layers size={20} />
             Batch List
           </Link>
-          <a
-            href="#"
+          <Link
+            to="/manufacturer/batch-detail"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <FileText size={20} />
             Batch Detail
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/manufacturer/anomaly-alerts"
             className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -110,21 +110,21 @@ export default function ManufacturerDashboard() {
             <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
               3
             </span>
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/manufacturer/trigger-recall"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <Zap size={20} />
             Trigger Recall
-          </a>
-          <a
-            href="#"
+          </Link>
+          <Link
+            to="/manufacturer/compliance-export"
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
             <Download size={20} />
             Compliance Export
-          </a>
+          </Link>
         </nav>
 
         {/* User Profile Footer */}
