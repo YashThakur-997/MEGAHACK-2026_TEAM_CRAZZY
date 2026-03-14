@@ -1302,7 +1302,7 @@ export default function PramanChainDashboard() {
               P
             </div>
             <div>
-              <div style={{ color:"#fff", fontSize:20, fontWeight:700, letterSpacing:0.5, lineHeight:1.1 }}>PHARMACHAIN</div>
+              <div style={{ color:"#fff", fontSize:20, fontWeight:700, letterSpacing:0.5, lineHeight:1.1 }}>PRAMANCHAIN</div>
               <div style={{ ...mono, fontSize:10, color:"#94a3b8", textTransform:"uppercase", letterSpacing:2, marginTop:4 }}>Distributor Node</div>
             </div>
           </Link>
@@ -1363,7 +1363,6 @@ export default function PramanChainDashboard() {
             <div style={{ fontSize:24, fontWeight:700, color:"#0F172A", lineHeight:1 }}>{PAGE_TITLES[page]}</div>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:5 }}>
               <PulsingDot color="#22C55E" size={6}/>
-              <span style={{ ...inter, fontSize:12, fontWeight:500, color:"#16A34A", background:"#F0FDF4", border:"1px solid #BBF7D0", borderRadius:99, padding:"3px 10px" }}>Live on Polygon</span>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>

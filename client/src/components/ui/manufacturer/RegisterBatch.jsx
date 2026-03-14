@@ -164,16 +164,6 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3 text-blue-800 text-sm font-medium">
-          <Info size={18} className="text-blue-600" />
-          Network Status: Connected to Polygon Amoy Testnet. All transactions are immutable and verifiable.
-        </div>
-        <a href="#" className="text-blue-700 text-sm font-semibold hover:underline">
-          Block Explorer
-        </a>
-      </div>
-
       <div className="grid grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col justify-between">
           <div className="flex justify-between items-start">
@@ -465,12 +455,6 @@ function RegisterBatchContent() {
   return (
     <div className="max-w-4xl max-w-[1000px] mx-auto space-y-6 mt-2">
       <h2 className="text-3xl font-bold text-slate-800">Register Batch</h2>
-
-      {/* Info Banner */}
-      <div className="info-banner flex items-center gap-3">
-        <Info size={18} style={{ color: "var(--blue)", flexShrink: 0 }} />
-        <p className="text-sm font-medium">New batch will be registered on Polygon blockchain for immutable tracking.</p>
-      </div>
 
       {/* Stepper */}
       <div className="flex items-center justify-between py-2 px-1 mb-2">
@@ -947,7 +931,7 @@ function BatchDetailContent() {
       </div>
       
       <div className="text-center pt-8 pb-4">
-         <p className="text-[11px] text-slate-400 font-medium">© 2024 PharmaChain Ledger Systems - Secured by Distributed Consensus</p>
+         <p className="text-[11px] text-slate-400 font-medium">© 2024 PramanChain Ledger Systems - Secured by Distributed Consensus</p>
       </div>
 
     </div>
@@ -1319,7 +1303,7 @@ export default function RegisterBatch({ initialTab = 'register' }) {
             P
           </div>
           <span className="font-bold tracking-wide text-lg" style={{ color: "var(--side-text)" }}>
-            PHARMACHAIN
+            PRAMANCHAIN
           </span>
         </Link>
 
@@ -1367,16 +1351,13 @@ export default function RegisterBatch({ initialTab = 'register' }) {
           </button>
           <button
             onClick={() => navigate('/manufacturer/anomaly-alerts')}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'anomalyAlerts'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer ${activeTab === 'anomalyAlerts'
                 ? 'bg-slate-700/50 text-emerald-400 font-medium border border-slate-700/50'
                 : 'hover:bg-slate-800 hover:text-white'
               }`}
           >
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </button>
           <button
             onClick={() => navigate('/manufacturer/trigger-recall')}
@@ -1423,32 +1404,8 @@ export default function RegisterBatch({ initialTab = 'register' }) {
             <h1 className="text-2xl font-bold text-slate-800">
               {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'batchList' ? 'Batch List' : activeTab === 'batchDetail' ? 'Batch Detail' : activeTab === 'anomalyAlerts' ? 'Anomaly Alerts' : activeTab === 'triggerRecall' ? 'Trigger Recall' : activeTab === 'complianceExport' ? 'Compliance Export' : 'Register Batch'}
             </h1>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold border border-emerald-200">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              Live on Polygon
-            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg px-4 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500">
-              <option>All Batches</option>
-              <option>In Transit</option>
-              <option>Warehouse</option>
-            </select>
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg px-4 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500">
-              <option>2024-25</option>
-              <option>2023-24</option>
-            </select>
-
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileSpreadsheet size={16} className="text-emerald-500" />
-              CSV
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileIcon size={16} className="text-red-500" />
-              PDF
-            </button>
-          </div>
         </header>
 
         <div className="px-8 pb-8 pt-6 relative min-h-0 flex-1 overflow-auto">

@@ -23,13 +23,10 @@ import {
   Zap,
   Download,
   Settings,
-  Info,
   Package,
   ShieldCheck,
   Flame,
   QrCode,
-  FileSpreadsheet,
-  FileIcon,
 } from 'lucide-react';
 
 export default function ManufacturerDashboard() {
@@ -186,7 +183,7 @@ export default function ManufacturerDashboard() {
             P
           </div>
           <span className="text-white font-bold tracking-wide text-lg">
-            PHARMACHAIN
+            PRAMANCHAIN
           </span>
         </Link>
 
@@ -222,15 +219,10 @@ export default function ManufacturerDashboard() {
           </Link>
           <Link
             to="/manufacturer/anomaly-alerts"
-            className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors"
           >
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={20} />
-              Anomaly Alerts
-            </div>
-            <span className="bg-orange-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              {stats.activeAlerts}
-            </span>
+            <AlertTriangle size={20} />
+            Anomaly Alerts
           </Link>
           <Link
             to="/manufacturer/trigger-recall"
@@ -280,48 +272,12 @@ export default function ManufacturerDashboard() {
         <header className="flex items-center justify-between px-8 py-6 bg-slate-50">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-800">Dashboard Overview</h1>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold border border-emerald-200">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              Live on Polygon
-            </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg px-4 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500">
-              <option>All Batches</option>
-              <option>In Transit</option>
-              <option>Warehouse</option>
-            </select>
-            <select className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg px-4 py-2 outline-none shadow-sm focus:ring-2 focus:ring-emerald-500">
-              <option>2024-25</option>
-              <option>2023-24</option>
-            </select>
-            
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileSpreadsheet size={16} className="text-emerald-500" />
-              CSV
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              <FileIcon size={16} className="text-red-500" />
-              PDF
-            </button>
-          </div>
         </header>
 
         {/* Dashboard Content */}
         <div className="px-8 pb-8 space-y-6">
-          
-          {/* Info Banner */}
-          <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3 text-blue-800 text-sm font-medium">
-              <Info size={18} className="text-blue-600" />
-              Network Status: Connected to Polygon Amoy Testnet. All transactions are immutable and verifiable.
-            </div>
-            <a href="#" className="text-blue-700 text-sm font-semibold hover:underline">
-              Block Explorer
-            </a>
-          </div>
-
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-6">
             
