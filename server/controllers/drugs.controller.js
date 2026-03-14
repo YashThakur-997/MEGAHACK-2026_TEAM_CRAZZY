@@ -7,6 +7,23 @@ const DrugsBatch = require("../models/drugsbatch");
 const RecallCase = require('../models/recall.case');
 const UserModel = require('../models/users');
 
+function normalizeBatchId(raw) {
+  return String(raw || '').trim();
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function findBatchByIdLoose(rawBatchId) {
+  const batchId = normalizeBatchId(rawBatchId);
+  if (!batchId) return null;
+
+  return DrugsBatch.findOne({
+    batchId: { $regex: `^${escapeRegExp(batchId)}$`, $options: 'i' },
+  });
+}
+
 // keep hash fields centralized so register/verify always match
 function getHashInput(batch) {
   return {
@@ -146,7 +163,11 @@ async function resolveManufacturerProfile(licenseNo) {
 // POST /api/drugs/register-batch
 exports.registerBatchWithHashAndQR = async (req, res) => {
   try {
-    const batch = req.body;
+    const batch = {
+      ...(req.body || {}),
+      batchId: normalizeBatchId(req.body?.batchId),
+    };
+
     if (!batch?.batchId) {
       return res.status(400).json({ ok: false, message: "batchId is required" });
     }
@@ -192,8 +213,8 @@ exports.registerBatchWithHashAndQR = async (req, res) => {
 // GET /api/drugs/verify/:batchId
 exports.verifyBatchById = async (req, res) => {
   try {
-    const { batchId } = req.params;
-    const batch = await DrugsBatch.findOne({ batchId });
+    const batchId = normalizeBatchId(req.params.batchId);
+    const batch = await findBatchByIdLoose(batchId);
     if (!batch) return res.status(404).json({ ok: false, message: "Batch not found" });
 
     const recomputed = computeBatchHash(getHashInput(batch));
@@ -274,8 +295,8 @@ exports.listBatches = async (req, res) => {
 // GET /api/drugs/history/:batchId
 exports.getBatchHistory = async (req, res) => {
   try {
-    const { batchId } = req.params;
-    const batch = await DrugsBatch.findOne({ batchId }).lean();
+    const batchId = normalizeBatchId(req.params.batchId);
+    const batch = await findBatchByIdLoose(batchId).lean();
 
     if (!batch) {
       return res.status(404).json({ ok: false, message: 'Batch not found' });
